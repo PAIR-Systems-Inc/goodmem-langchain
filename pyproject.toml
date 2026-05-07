@@ -1,0 +1,107 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "langchain-goodmem"
+version = "0.1.0"
+description = "LangChain integration for GoodMem: long-term agent memory with semantic storage and retrieval."
+license = "MIT"
+license-files = ["LICENSE"]
+readme = "README.md"
+keywords = ["langchain", "goodmem", "memory", "agents", "llm", "vector-search", "semantic-search"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Typing :: Typed",
+]
+requires-python = ">=3.10.0,<4.0.0"
+dependencies = [
+    "langchain-core>=1.0.0,<2.0.0",
+    "httpx>=0.27.0,<1.0.0",
+    "pydantic>=2.7.4,<3.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/PAIR-Systems-Inc/goodmem-langchain"
+Repository = "https://github.com/PAIR-Systems-Inc/goodmem-langchain"
+Documentation = "https://goodmem.ai/docs"
+Issues = "https://github.com/PAIR-Systems-Inc/goodmem-langchain/issues"
+
+[dependency-groups]
+test = [
+    "pytest>=7.3.0,<8.0.0",
+    "pytest-mock>=3.10.0,<4.0.0",
+    "pytest-asyncio>=0.21.1,<1.0.0",
+    "pytest-socket>=0.6.0,<1.0.0",
+    "syrupy>=4.0.2,<5.0.0",
+    "langchain-core",
+]
+test_integration = [
+    "httpx>=0.27.0,<1.0.0",
+]
+lint = ["ruff>=0.13.1,<0.14.0"]
+dev = ["langchain-core"]
+typing = [
+    "mypy>=1.10.0,<2.0.0",
+    "langchain-core",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["langchain_goodmem"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "TID251", "UP"]
+ignore = ["E501"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+ignore-var-parameters = true
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.mypy]
+disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = ["pytest.*"]
+ignore_missing_imports = true
+
+[tool.coverage.run]
+omit = ["tests/*"]
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers --strict-config --durations=5 -vv"
+markers = [
+    "requires: mark tests as requiring a specific library",
+    "compile: mark placeholder test used to compile integration tests without running them",
+]
+asyncio_mode = "auto"
+
+[tool.ruff.lint.extend-per-file-ignores]
+"tests/**/*.py" = [
+    "S101",
+    "S311",
+    "SLF001",
+    "D",
+    "B018",
+    "PGH003",
+    "PERF401",
+    "PT017",
+    "RUF012",
+    "B017",
+]
+"scripts/*.py" = [
+    "INP001",
+]

@@ -1,0 +1,36 @@
+# Build artifacts
+dist/
+build/
+*.egg-info/
+*.egg
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Tooling caches
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+*.swp
+*~
+
+# Environment files
+.env
+.env.local
