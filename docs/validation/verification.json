@@ -1,40 +1,43 @@
 {
-  "status": "local-uncommitted-review",
-  "recorded_at": "2026-09-14T06:39:53.610689+00:00",
+  "status": "prepublication-validation",
+  "recorded_at": "2026-09-14T07:23:14.334660+00:00",
   "base_commit": "07f087e9570f2a6cf52205b3d01cae0382d17a35",
-  "api": "0.2 clean break; no compatibility client or deprecated argument handlers",
+  "api": "0.2 clean break plus Document ingestion, native metadata filtering and standard suites",
   "offline_tests": {
-    "python_3_10": 37,
-    "python_3_13": 37
+    "python_3_10": 114,
+    "python_3_13": 114
   },
   "live_contract": "docs/validation/live-sdk-rag.json",
   "live_tests": {
-    "passed": 1,
-    "case": "tests/integration_tests/test_sdk_rag.py::test_live_sdk_rag",
-    "covers": "All eleven tools, memory readiness, native content, plain and reranked Documents without an LLM, server diagnostics, fallback chunks, cleanup"
+    "passed": 10,
+    "files": [
+      "tests/integration_tests/test_sdk_rag.py",
+      "tests/integration_tests/test_standard.py"
+    ],
+    "covers": "All eleven tools, SDK batch Document ingestion, caller UUIDs, partial batch receipts, readiness, filtered plain/reranked retrieval without LLM, official retriever suite, per-call limits, diagnostics and cleanup"
   },
-  "smoke_example": "passed against local GoodMem; temporary space deleted",
+  "smoke_example": "Document ingestion, metadata filtering and reranking passed; temporary space deleted",
   "demo_tests": 12,
-  "demo_retrieval_parity": "16/16 same text, metadata, scores and order",
+  "demo_retrieval_parity": "16/16 at the approved baseline; not rerun for this follow-up",
   "ruff": "passed",
   "format": "passed",
-  "mypy": "passed (26 files)",
+  "mypy": "passed (29 files)",
   "packaging_tests": {
     "python_3_10": 2,
     "python_3_13": 2
   },
-  "readme_words_including_code": 349,
+  "readme_words_including_code": 372,
   "build": "wheel and sdist built locally",
-  "remote_ci": "not run; no push",
+  "remote_ci": "Pending release workflow; this record was written before the release commit.",
   "package_source_sha256": {
-    "langchain_goodmem/__init__.py": "842e057306541f1b8fe0919f0016ada7d3ac881e6cfae1bb32008388098ab732",
+    "langchain_goodmem/__init__.py": "a436c91ac17661f4c964e1cae3144b8a3153bfc750bccf45bf458628a0e6e6fa",
     "langchain_goodmem/_connection.py": "4bf6e5338b1d7b3d2fd693d4a0af4067bff23cdb0f8558ed47b95ffc65635659",
-    "langchain_goodmem/ingestion.py": "6eeb1d31899e7f20bb222b9ccf232bc38b68926e9cc6e88362df1c1f2db68423",
-    "langchain_goodmem/retrievers.py": "9be9949a515ad9c27defc1dcc3d90efe64b9393c102b80ac64f115b8948d2800",
+    "langchain_goodmem/ingestion.py": "33d8f6ec38587522f06f55d716655d2f21566d086125c32dc16e848e132881b3",
+    "langchain_goodmem/retrievers.py": "d965bb2a99e94287e2cef65735c9217e408fc75196026a883a3d7b4300ddc11c",
     "langchain_goodmem/tools/__init__.py": "3cb3eb7b2f5719e30ac5efeabd0fc234e2b0b507733ee324092820957a3dbd1d",
     "langchain_goodmem/tools/_base.py": "e42dde58f23d27c3d2e202eec78dac6a34c9d4f625b94f77bf2435932823ad60",
     "langchain_goodmem/tools/create_memory.py": "b07a1fdeccba14cfe3b230e0fdfd9b4d60e1302e9707cdbc78c4e3e380c8422f",
-    "langchain_goodmem/tools/create_space.py": "0d774013bcce3d650909d07f8987154d29c3c7f8e34080ee50d963c90a1b9cc0",
+    "langchain_goodmem/tools/create_space.py": "693f85a6d95850feb5535fb7eddc182a2de242b22df7667de566288ec57db5e0",
     "langchain_goodmem/tools/delete_memory.py": "1d9388f69e7bf6d9379363097e425e5fa0438a9df7bb264455ed6b6590f7bc77",
     "langchain_goodmem/tools/delete_space.py": "f8a5c0ecca7a411cc1419ed97c882b7ac83be77d9124f44987d921ed231a0ca2",
     "langchain_goodmem/tools/get_memory.py": "db3a589793bc065c62c895fdd44bbab5e4238d06c0a2cfdb2be9c1c86414e7ac",
@@ -46,8 +49,26 @@
     "langchain_goodmem/tools/update_space.py": "77e800ca3a2fabba2ef929bf3bebc5e18168419d85b3008f1ec7966682d54259"
   },
   "distribution_sha256": {
-    "dist/langchain_goodmem-0.2.0.dev0-py3-none-any.whl": "d5f2be79bab72c5cde09a5070ea5d0a86b690a38265820a0a64bca5c5be3f476",
-    "dist/langchain_goodmem-0.2.0.dev0.tar.gz": "ffa874cda93513b63086a81760fe9e499e62e761c6a6ae417908915c8796459b"
+    "dist/langchain_goodmem-0.2.0-py3-none-any.whl": "76ed1ad53569dc2e82dcb5f89a0f93cd1d6dde4e8fe39d8ac2ec2a338dfd0bc5",
+    "dist/langchain_goodmem-0.2.0.tar.gz": "d303d86f83d85e7af10bce9e188404f1343a09b518182cf64106a223b819ed5d"
   },
-  "distribution_checks": "Review documents excluded; README within 500 words; wheel Python files exactly match current package, including removal of _client.py."
+  "distribution_checks": "Review documents excluded; README within 500 words; wheel Python files exactly match current package, including removal of _client.py.",
+  "approved_local_commits": {
+    "goodmem-langchain": "569a739",
+    "Agentic_RAG_GoodMem": "d486efa"
+  },
+  "offline_standard_tests": {
+    "tools": 66,
+    "retrievers": 5
+  },
+  "docs_python_examples": {
+    "passed": 5,
+    "source": "goodmem-docs/content/docs/integrations/agent-frameworks/langchain.mdx"
+  },
+  "docs_checks": "npm run test:llms and all five Python examples passed before release preparation; deployment is tracked separately.",
+  "observed_server_rough_edges": [
+    "String comparison through val() requires an explicit text cast for expected matches.",
+    "The bare TRUE filter produces VECTOR_SEARCH_FAILED (Expected a condition but got a org.jooq.impl.Val)."
+  ],
+  "package_version": "0.2.0"
 }

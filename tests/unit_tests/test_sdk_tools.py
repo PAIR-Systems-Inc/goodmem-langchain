@@ -48,29 +48,6 @@ def test_space_crud_uses_sdk_defaults_and_fields(wire: Wire) -> None:
     assert [r.method for r in wire.requests] == ["POST", "GET", "PUT", "DELETE"]
 
 
-def test_native_chunking_configuration_reaches_sdk(wire: Wire) -> None:
-    config = {
-        "recursive": {
-            "chunkSize": 40,
-            "chunkOverlap": 3,
-            "keepStrategy": "KEEP_START",
-            "lengthMeasurement": "CHARACTER_COUNT",
-        }
-    }
-    wire.responses.append(
-        httpx.Response(200, json=SPACE | {"defaultChunkingConfig": config})
-    )
-    result = GoodMemCreateSpace(client=wire.sdk).invoke(
-        {
-            "name": "Small",
-            "embedder_id": "embedder-1",
-            "default_chunking_config": config,
-        }
-    )
-    assert json.loads(wire.requests[0].content)["defaultChunkingConfig"] == config
-    assert result["default_chunking_config"]["recursive"]["chunk_overlap"] == 3
-
-
 @pytest.mark.parametrize("kind", ["spaces", "memories"])
 def test_list_tools_follow_sdk_pages_and_respect_limits(wire: Wire, kind: str) -> None:
     model, tool, args = (

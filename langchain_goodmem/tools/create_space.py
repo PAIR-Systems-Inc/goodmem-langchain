@@ -2,7 +2,6 @@
 
 from typing import Any
 
-from goodmem.models.chunking_configuration import ChunkingConfiguration
 from goodmem.models.space_embedder_config import SpaceEmbedderConfig
 from pydantic import BaseModel, Field
 
@@ -14,9 +13,6 @@ class CreateSpaceInput(ToolInput):
 
     name: str = Field(description="Name for the new space.")
     embedder_id: str = Field(description="UUID of the embedder to use.")
-    default_chunking_config: ChunkingConfiguration | None = Field(
-        default=None, description="Chunking configuration; omit for SDK defaults."
-    )
     labels: dict[str, str] | None = None
 
 
@@ -34,15 +30,9 @@ class GoodMemCreateSpace(GoodMemTool):
         self,
         name: str,
         embedder_id: str,
-        default_chunking_config: ChunkingConfiguration | None = None,
         labels: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """Create a space and return its SDK fields as a dictionary."""
-        options: dict[str, Any] = (
-            {"default_chunking_config": default_chunking_config}
-            if default_chunking_config is not None
-            else {}
-        )
         with self._session() as client:
             space = client.spaces.create(
                 name=name,
@@ -50,6 +40,5 @@ class GoodMemCreateSpace(GoodMemTool):
                     SpaceEmbedderConfig.model_validate({"embedderId": embedder_id})
                 ],
                 labels=labels,
-                **options,
             )
             return space.model_dump(mode="json", exclude_none=True)

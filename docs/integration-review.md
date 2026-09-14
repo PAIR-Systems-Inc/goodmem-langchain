@@ -1,40 +1,26 @@
 # Integration review: clean 0.2 API
 
-These are local, uncommitted changes on `feat/sdk-retriever`, based on `07f087e9570f2a6cf52205b3d01cae0382d17a35`. The version remains `0.2.0.dev0`; nothing has been published. This document supersedes the earlier compatibility proposal and is excluded from distributions.
+The SDK migration and clean break are in `569a739`, followed by the Document ingestion, metadata filtering and standard test coverage below. Version 0.2.0 includes both sets of changes. Publication was authorized on September 14, 2026; [verification](validation/verification.json) records the checks performed before publication.
 
-The useful additions are the standard Document retriever and waiting for a known memory to finish indexing. Both apply to ordinary LangChain applications. The official SDK now owns transport, response parsing, pagination and resource semantics.
+## Follow-up changes
 
-## What was removed
+- `add_documents(client, space_id, documents)` writes LangChain Documents through the SDK batch API, preserving metadata and optional UUID IDs. It returns memory IDs and waits for indexing by default. `GoodMemIngestionError.created_memory_ids` retains known successful writes when a batch or wait fails.
+- `GoodMemRetriever.filter` passes a native GoodMem expression to each configured space before vector search and reranking. Agent search tools still expose only a query. Per-call `k` now works, as required by the standard retriever suite.
+- The create-space tool no longer exposes chunking configuration. Developers configure custom chunking through the SDK. Creation remains explicit; name matching and automatic reuse stay removed.
+- All eleven tools use LangChain's `ToolsUnitTests`; the retriever uses `RetrieversIntegrationTests` over both an in-memory HTTP transport and a live corpus. The test dependency is pinned to 1.1.6.
+- The docs site's LangChain page covers ingestion, filtered retrieval, reranking and the standard tool factory. The README remains below 500 words.
 
-- The 510-line `GoodMemClient` compatibility facade and string-based tool dispatch.
-- JSON success/count envelopes, retrieval-status classification into success/partial, and custom content decoding/error wrappers.
-- Deprecated argument handling, including the `wait_for_indexing=False` exception and the special `public_read` rejection.
-- Name-based space reuse, configuration comparison and independent chunking defaults.
-- The extra retriever-tool factory. Applications use LangChain's `create_retriever_tool` and choose their own formatting.
-- Tests for the deleted compatibility policies and duplicate schema/import snapshots.
+The older review's 17-code JSON classification, special NOT_FOUND rule, overlap capping, and field-by-field space matching were already deleted in the clean break. The low-level retrieval tool still returns SDK events unchanged. No success/partial envelope or name-matching policy has been restored.
 
-Each tool has an explicit typed `_run` that calls the SDK. Results use SDK fields; server retrieval diagnostics remain in the event list. The Document retriever continues to raise on incomplete retrieval. Create-memory waits by default and identifies the created memory if waiting fails. Empty searches return immediately.
+A full VectorStore and native `AsyncGoodmem` support remain separate work. The supplied write path accepts ordinary LangChain Documents; GoodMem can split them into multiple retrieved chunks. Async retrieval currently uses LangChain's executor.
 
-[The changelog](../CHANGELOG.md) documents the intentional API break. [The README](../README.md) is a quickstart again.
+## Validation and size
 
-## Size
+114 offline tests pass on Python 3.10 and 3.13, including 71 inherited standard tests. Ten live tests cover all eleven tools, Document ingestion, filtered plain/reranked retrieval without an LLM, per-call limits, diagnostics and cleanup. The demo's 12 tests pass. The smoke example and all five Python snippets from the updated docs page also run successfully against temporary spaces.
 
-| Measure | Previous reviewed worktree | Clean 0.2 |
-|---|---:|---:|
-| Production Python lines | 1,787 | 824 |
-| Production AST statements | 467 | 313 |
-| Test Python lines | 1,808 | 911 |
-| README words, including code | 1,655 | 349 |
+Production Python grows from 824 to 915 lines for these features (313 to 343 AST statements). That remains 54.1% smaller than the original release's 1,994 lines. The README has 372 words including code. [Measurements](validation/code-size.json) and [verification](validation/verification.json) record the details. Distributions exclude this review and its artifacts.
 
-Production code falls by 963 lines (53.9%). Against the original release's 1,994 production lines, the reduction is 58.7%. Counts include new modules, docstrings and blank lines; statement counts exclude docstrings. [Measurements](validation/code-size.json).
+## GoodMem filter rough edges observed live
 
-## Validation
-
-- 37 unit tests pass on Python 3.10 and 3.13, using the real SDK over an in-memory HTTP transport.
-- One owned-space live workflow covers all eleven tools, plain/reranked retrieval without an LLM, indexing readiness, native inline content, failure diagnostics, and cleanup. The standalone smoke example also passes.
-- The demo's 12 tests pass; 16 live comparisons preserve the original retrieval text, metadata, scores and order.
-- Ruff, formatting, mypy and distribution checks are recorded in [verification.json](validation/verification.json). Packaging checks exclude review documents and removed modules, and enforce the README limit.
-
-Native `AsyncGoodmem` support and the `langchain-tests` standard suites remain follow-up work. The previous undeclared `typing_extensions` import has been removed. The SDK still supplies its own status model and defaults; the integration no longer duplicates those policies in a second client.
-
-No commit, push, PR or publication is authorized before user review.
+- `val('$.application') = 'agentic-rag-goodmem'` returned no matches despite matching stored metadata. `CAST(val('$.application') AS TEXT) = 'agentic-rag-goodmem'` returned the expected five chunks. Examples use the explicit cast; `val` returns JSON.
+- A bare `TRUE` predicate produced `VECTOR_SEARCH_FAILED` with `Expected a condition but got a org.jooq.impl.Val`. The strict retriever exposed the server failure. This server issue was recorded, not patched or hidden in the integration.

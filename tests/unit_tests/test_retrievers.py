@@ -122,7 +122,11 @@ def test_reranking_and_standard_query_only_tool(wire: Wire) -> None:
         )
     )
     retriever = GoodMemRetriever(
-        client=wire.sdk, space_ids=["space-1"], reranker_id="reranker-1", fetch_k=20
+        client=wire.sdk,
+        space_ids=["space-1"],
+        reranker_id="reranker-1",
+        fetch_k=20,
+        filter="CAST(val('$.team') AS TEXT) = 'blue'",
     )
     tool = create_retriever_tool(
         retriever, "docs", "Search docs", response_format="content_and_artifact"
@@ -133,14 +137,23 @@ def test_reranking_and_standard_query_only_tool(wire: Wire) -> None:
             "type": "tool_call",
             "id": "call-1",
             "name": "docs",
-            "args": {"query": "question", "space_ids": ["untrusted-space"]},
+            "args": {
+                "query": "question",
+                "space_ids": ["untrusted-space"],
+                "filter": "TRUE",
+            },
         }
     )
     assert isinstance(result, ToolMessage)
     assert result.content == "Retrieved evidence"
     assert result.artifact[0].metadata["source"] == "https://example.org/docs"
     request = json.loads(wire.requests[0].content)
-    assert request["spaceKeys"] == [{"spaceId": "space-1"}]
+    assert request["spaceKeys"] == [
+        {
+            "spaceId": "space-1",
+            "filter": "CAST(val('$.team') AS TEXT) = 'blue'",
+        }
+    ]
     assert request["requestedSize"] == 20
     assert request["postProcessor"]["config"] == {
         "reranker_id": "reranker-1",
@@ -196,3 +209,25 @@ def test_empty_results_are_immediate_and_caller_client_stays_open(wire: Wire) ->
         == []
     )
     assert len(wire.requests) == 2 and not wire.http.is_closed
+
+
+@pytest.mark.parametrize("reranker", [None, "reranker-1"])
+def test_metadata_filter_is_sent_to_each_space_before_retrieval(
+    wire: Wire, reranker: str | None
+) -> None:
+    wire.responses.append(ndjson(CHUNK, {"memoryDefinition": MEMORY}))
+    predicate = "CAST(val('$.team') AS TEXT) = 'blue'"
+    retriever = GoodMemRetriever(
+        client=wire.sdk,
+        space_ids=["space-1", "space-2"],
+        filter=predicate,
+        reranker_id=reranker,
+    )
+    assert retriever.invoke("question", k=1)
+    request = json.loads(wire.requests[0].content)
+    assert request["spaceKeys"] == [
+        {"spaceId": sid, "filter": predicate} for sid in ["space-1", "space-2"]
+    ]
+    assert request["requestedSize"] == (4 if reranker else 1)
+    if reranker:
+        assert request["postProcessor"]["config"]["max_results"] == 1

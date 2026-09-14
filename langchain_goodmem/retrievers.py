@@ -5,6 +5,7 @@ from typing import Any
 
 from goodmem.models.good_mem_status import GoodMemStatus
 from goodmem.models.retrieve_memory_event import RetrieveMemoryEvent
+from goodmem.models.space_key import SpaceKey
 from langchain_core.callbacks import CallbackManagerForRetrieverRun
 from langchain_core.documents import Document
 from langchain_core.retrievers import BaseRetriever
@@ -107,6 +108,10 @@ class GoodMemRetriever(GoodMemConnection, BaseRetriever):
     k: int = Field(default=5, gt=0)
     fetch_k: int | None = Field(default=None, gt=0)
     reranker_id: str | None = None
+    filter: str | None = Field(
+        default=None,
+        description="GoodMem metadata filter expression applied to every configured space.",
+    )
 
     @model_validator(mode="after")
     def _validate_search(self) -> "GoodMemRetriever":
@@ -117,26 +122,41 @@ class GoodMemRetriever(GoodMemConnection, BaseRetriever):
         return self
 
     def _get_relevant_documents(
-        self, query: str, *, run_manager: CallbackManagerForRetrieverRun
+        self,
+        query: str,
+        *,
+        run_manager: CallbackManagerForRetrieverRun,
+        k: int | None = None,
     ) -> list[Document]:
         if not query.strip():
             raise ValueError("Search query must not be empty")
+        limit = self.k if k is None else k
+        if limit <= 0:
+            raise ValueError("k must be positive")
+        if self.fetch_k is not None and self.fetch_k < limit:
+            raise ValueError("fetch_k must be at least k")
         options: dict[str, Any] = {}
         if self.reranker_id:
             options = dict(
                 reranker_id=self.reranker_id,
-                max_results=self.k,
+                max_results=limit,
                 chronological_resort=False,
             )
+        if self.filter is None:
+            options["space_ids"] = self.space_ids
+        else:
+            options["space_keys"] = [
+                SpaceKey.model_validate({"spaceId": sid, "filter": self.filter})
+                for sid in self.space_ids
+            ]
         with self._session() as client:
             events = client.memories.retrieve(
                 message=query,
-                space_ids=self.space_ids,
                 requested_size=self.fetch_k
-                or (self.k * 4 if self.reranker_id else self.k),
+                or (limit * 4 if self.reranker_id else limit),
                 fetch_memory=True,
                 fetch_memory_content=False,
                 stream=False,
                 **options,
             )
-        return documents_from_events(events)[: self.k]
+        return documents_from_events(events)[:limit]
