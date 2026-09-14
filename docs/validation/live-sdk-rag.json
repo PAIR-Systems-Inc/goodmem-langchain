@@ -1,0 +1,19 @@
+{
+  "GoodMemListEmbedders": true,
+  "GoodMemCreateSpace": true,
+  "GoodMemGetSpace": true,
+  "GoodMemListSpaces": true,
+  "GoodMemUpdateSpace": true,
+  "GoodMemCreateMemory": true,
+  "default_create_waits_for_indexing": true,
+  "GoodMemGetMemory": true,
+  "GoodMemListMemories": true,
+  "plain_and_reranked_document_tools_without_llm": true,
+  "GoodMemRetrieveMemories": true,
+  "sdk_tool_preserves_statuses_and_fallback_chunks": true,
+  "document_retriever_reports_reranker_failure": true,
+  "GoodMemDeleteMemory": true,
+  "empty_space_returns_empty": true,
+  "GoodMemDeleteSpace": true,
+  "temporary_resources_deleted": true
+}

@@ -1,6 +1,10 @@
 """LangChain integration for GoodMem vector-based memory storage and retrieval."""
 
-from langchain_goodmem._client import GoodMemClient
+from langchain_goodmem.ingestion import wait_for_memory
+from langchain_goodmem.retrievers import (
+    GoodMemRetrievalError,
+    GoodMemRetriever,
+)
 from langchain_goodmem.tools import (
     GoodMemCreateMemory,
     GoodMemCreateSpace,
@@ -16,7 +20,9 @@ from langchain_goodmem.tools import (
 )
 
 __all__ = [
-    "GoodMemClient",
+    "GoodMemRetriever",
+    "GoodMemRetrievalError",
+    "wait_for_memory",
     "GoodMemCreateMemory",
     "GoodMemCreateSpace",
     "GoodMemDeleteMemory",

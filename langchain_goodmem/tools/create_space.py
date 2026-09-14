@@ -1,126 +1,55 @@
-"""GoodMem Create Space tool."""
+"""Create a space using the GoodMem SDK's configuration and defaults."""
 
-import json
 from typing import Any
 
-from langchain_core.tools import BaseTool
+from goodmem.models.chunking_configuration import ChunkingConfiguration
+from goodmem.models.space_embedder_config import SpaceEmbedderConfig
 from pydantic import BaseModel, Field
 
-from langchain_goodmem._client import GoodMemClient
+from langchain_goodmem.tools._base import GoodMemTool, ToolInput
 
 
-class CreateSpaceInput(BaseModel):
-    """Input schema for the GoodMem Create Space tool."""
+class CreateSpaceInput(ToolInput):
+    """Arguments for creating a space with one embedder."""
 
-    name: str = Field(description="A unique name for the space.")
-    embedder_id: str = Field(
-        description=(
-            "The ID of the embedder model that converts text into vector "
-            "representations for similarity search."
-        ),
+    name: str = Field(description="Name for the new space.")
+    embedder_id: str = Field(description="UUID of the embedder to use.")
+    default_chunking_config: ChunkingConfiguration | None = Field(
+        default=None, description="Chunking configuration; omit for SDK defaults."
     )
-    chunking_strategy: str = Field(
-        default="recursive",
-        description=(
-            "The chunking strategy for text processing. "
-            "One of 'recursive', 'sentence', or 'none'."
-        ),
-    )
-    chunk_size: int = Field(
-        default=512,
-        description="Maximum chunk size in characters (for recursive/sentence).",
-    )
-    chunk_overlap: int = Field(
-        default=50,
-        description="Overlap between consecutive chunks in characters.",
-    )
+    labels: dict[str, str] | None = None
 
 
-class GoodMemCreateSpace(BaseTool):
-    """Create a new GoodMem space or reuse an existing one.
-
-    A space is a logical container for organizing related memories,
-    configured with embedders that convert text to vector embeddings.
-    If a space with the given name already exists, its ID is returned
-    instead of creating a duplicate.
-
-    Setup:
-        Install ``langchain-goodmem`` and set environment variables:
-
-        .. code-block:: bash
-
-            pip install langchain-goodmem
-            export GOODMEM_API_KEY="your-api-key"
-            export GOODMEM_BASE_URL="http://localhost:8080"
-
-    Instantiate:
-        .. code-block:: python
-
-            from langchain_goodmem import GoodMemCreateSpace
-
-            tool = GoodMemCreateSpace(
-                goodmem_base_url="http://localhost:8080",
-                goodmem_api_key="your-api-key",
-            )
-
-    Invocation:
-        .. code-block:: python
-
-            result = tool.invoke({
-                "name": "my-space",
-                "embedder_id": "emb-xxx",
-            })
-    """
+class GoodMemCreateSpace(GoodMemTool):
+    """Create a new space. Existing spaces must be selected explicitly."""
 
     name: str = "goodmem_create_space"
     description: str = (
-        "Create a new GoodMem space or reuse an existing one. "
-        "A space is a logical container for organizing related memories, "
-        "configured with an embedder for vector search."
+        "Create a new GoodMem space with an embedder. Returns the created space. "
+        "Use goodmem_list_spaces to find an existing space."
     )
     args_schema: type[BaseModel] = CreateSpaceInput
-
-    goodmem_base_url: str = Field(description="GoodMem API base URL.")
-    goodmem_api_key: str = Field(description="GoodMem API key.")
-    goodmem_verify_ssl: bool = Field(
-        default=True, description="Whether to verify SSL certificates."
-    )
 
     def _run(
         self,
         name: str,
         embedder_id: str,
-        chunking_strategy: str = "recursive",
-        chunk_size: int = 512,
-        chunk_overlap: int = 50,
-        **kwargs: Any,
-    ) -> str:
-        """Create a space or return an existing one.
-
-        Args:
-            name: The space name.
-            embedder_id: The embedder ID.
-            chunking_strategy: The chunking strategy.
-            chunk_size: Maximum chunk size in characters.
-            chunk_overlap: Overlap between chunks in characters.
-            **kwargs: Additional keyword arguments (unused).
-
-        Returns:
-            JSON string with the operation result.
-        """
-        client = GoodMemClient(
-            base_url=self.goodmem_base_url,
-            api_key=self.goodmem_api_key,
-            verify_ssl=self.goodmem_verify_ssl,
+        default_chunking_config: ChunkingConfiguration | None = None,
+        labels: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
+        """Create a space and return its SDK fields as a dictionary."""
+        options: dict[str, Any] = (
+            {"default_chunking_config": default_chunking_config}
+            if default_chunking_config is not None
+            else {}
         )
-        try:
-            result = client.create_space(
+        with self._session() as client:
+            space = client.spaces.create(
                 name=name,
-                embedder_id=embedder_id,
-                chunking_strategy=chunking_strategy,
-                chunk_size=chunk_size,
-                chunk_overlap=chunk_overlap,
+                space_embedders=[
+                    SpaceEmbedderConfig.model_validate({"embedderId": embedder_id})
+                ],
+                labels=labels,
+                **options,
             )
-        except Exception as e:
-            result = {"success": False, "error": str(e)}
-        return json.dumps(result)
+            return space.model_dump(mode="json", exclude_none=True)

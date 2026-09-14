@@ -1,107 +1,78 @@
 # langchain-goodmem
 
-[![PyPI](https://img.shields.io/pypi/v/langchain-goodmem.svg)](https://pypi.org/project/langchain-goodmem/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+Use [GoodMem](https://goodmem.ai) from LangChain for document retrieval and agent memory. GoodMem handles storage, chunking, embeddings, and optional reranking.
 
-LangChain integration for [GoodMem](https://goodmem.ai) — long-term agent memory with semantic storage and retrieval.
+This is the **0.2 development API**, which intentionally breaks compatibility with 0.1. See [CHANGELOG.md](CHANGELOG.md) for migration details.
 
-GoodMem is a memory layer for AI agents that handles embedding, vector search, reranking, and LLM-powered answering server-side. This package exposes GoodMem operations as LangChain `BaseTool`s that can be wired into any LangChain agent or chain.
+## Install and connect
 
-## Installation
+Requires Python 3.10+, a running GoodMem server, an API key, and a space configured with an embedder. Install this development version from its source checkout:
 
 ```bash
-pip install langchain-goodmem
+pip install .
+export GOODMEM_BASE_URL="http://localhost:8080"
+export GOODMEM_API_KEY="your-key"
 ```
 
-Requires Python 3.10+.
+Components read these environment variables. You can instead pass a configured `goodmem.Goodmem` instance as `client=`; you retain ownership of that client.
 
-## Tools
-
-| Tool | Description |
-|---|---|
-| `GoodMemListEmbedders` | List available embedder models |
-| `GoodMemListSpaces` | List all spaces in your account |
-| `GoodMemGetSpace` | Fetch a single space by ID |
-| `GoodMemCreateSpace` | Create a new space or reuse an existing one |
-| `GoodMemUpdateSpace` | Update name / public-read / labels on a space |
-| `GoodMemDeleteSpace` | Delete a space (cascades to its memories) |
-| `GoodMemCreateMemory` | Store text or files as memories |
-| `GoodMemListMemories` | Paginate memories within a space |
-| `GoodMemRetrieveMemories` | Semantic search with optional reranker / LLM summary |
-| `GoodMemGetMemory` | Fetch a specific memory by ID |
-| `GoodMemDeleteMemory` | Permanently delete a memory |
-
-## Quick start
+## Store and retrieve
 
 ```python
-from langchain_goodmem import (
-    GoodMemCreateSpace,
-    GoodMemCreateMemory,
-    GoodMemRetrieveMemories,
-)
+from langchain_goodmem import GoodMemCreateMemory, GoodMemRetriever
 
-goodmem_kwargs = {
-    "goodmem_base_url": "http://localhost:8080",
-    "goodmem_api_key": "your-api-key",
-}
+space_id = "your-space-uuid"
 
-tools = [
-    GoodMemCreateSpace(**goodmem_kwargs),
-    GoodMemCreateMemory(**goodmem_kwargs),
-    GoodMemRetrieveMemories(**goodmem_kwargs),
-]
-```
-
-## Use with a LangChain agent
-
-```python
-from langchain.chat_models import init_chat_model
-from langchain.agents import create_agent
-
-llm = init_chat_model("openai:gpt-4o")
-agent = create_agent(llm, tools)
-
-response = agent.invoke({"messages": [{"role": "user", "content": "Save this fact and recall it later."}]})
-```
-
-## Retrieve with reranking and LLM summary
-
-`GoodMemRetrieveMemories` exposes the full server-side post-processor. Set any of these fields to enable reranking, threshold filtering, chronological re-sort, or an LLM-generated `abstractReply` summary:
-
-```python
-result = retrieve.invoke({
-    "query": "Which framework develops applications with language models?",
-    "space_ids": "space-uuid-1,space-uuid-2",
-    "max_results": 5,
-    "reranker_id": "reranker-uuid",
-    "llm_id": "llm-uuid",
-    "llm_temperature": 0.2,
-    "relevance_threshold": 0.1,
-    "chronological_resort": False,
+memory = GoodMemCreateMemory().invoke({
+    "space_id": space_id,
+    "original_content": "Project Cobalt's launch owner is Ada.",
+    "metadata": {"source": "https://example.org/cobalt"},
 })
+
+retriever = GoodMemRetriever(space_ids=[space_id], k=5)
+documents = retriever.invoke("Who owns Cobalt's launch?")
+for document in documents:
+    print(document.page_content, document.metadata["source"])
 ```
 
-Leave them all unset for plain semantic search.
+Creation waits for that memory to finish indexing. For background ingestion, set `wait=False`, then call `wait_for_memory(client, memory_id)` when readiness matters. Searches run once; empty results return immediately.
 
-## Environment variables
+The retriever returns LangChain `Document` objects with source metadata, memory/chunk/space IDs, and scores. It supports LCEL, callbacks, batching, and `ainvoke` through LangChain's thread executor. Retrieval failures raise exceptions.
 
-| Variable | Description |
-|---|---|
-| `GOODMEM_BASE_URL` | Base URL of the GoodMem API server |
-| `GOODMEM_API_KEY` | API key for authentication |
-| `GOODMEM_VERIFY_SSL` | Set to `false` to skip TLS verification for self-signed dev certs (default: `true`) |
+For reranking, add `reranker_id="your-reranker-uuid"` and optionally `fetch_k=20`. **Reranking requires no LLM.**
 
-## Examples
+## Give an agent a search tool
 
-A live end-to-end smoke test exercising every tool and every post-processor knob is in [examples/live_smoke_test.py](examples/live_smoke_test.py).
+Use LangChain's standard factory. The agent supplies a query; the developer configures the spaces.
+
+```python
+from langchain_core.tools import create_retriever_tool
+
+tool = create_retriever_tool(
+    retriever,
+    "search_project_records",
+    "Search project records for factual answers.",
+    response_format="content_and_artifact",
+)
+```
+
+Retrieved Documents remain available in `ToolMessage.artifact` for citations.
+
+## Other tools
+
+The package also provides create/get/update/delete/list space tools, create/get/delete/list memory tools, and `GoodMemListEmbedders`.
+
+`GoodMemRetrieveMemories` exposes SDK retrieval events, including optional LLM summaries and server statuses. Use it when you need that detail; use `GoodMemRetriever` for Documents.
+
+Tools return SDK-shaped dictionaries/lists with snake_case fields, without a `success` envelope. SDK failures raise LangChain `ToolException`; standard `handle_tool_error` configuration is available.
+
+See [the smoke example](examples/live_smoke_test.py) for a complete create, retrieve, and cleanup workflow.
+
+## Development
 
 ```bash
-export GOODMEM_BASE_URL=https://localhost:8080
-export GOODMEM_API_KEY=...
-export GOODMEM_VERIFY_SSL=false
-python examples/live_smoke_test.py
+uv sync --all-groups
+uv run pytest --disable-socket --allow-unix-socket tests/unit_tests
+uv run ruff check .
+uv run mypy .
 ```
-
-## License
-
-MIT — see [LICENSE](LICENSE).

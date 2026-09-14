@@ -1,0 +1,53 @@
+{
+  "status": "local-uncommitted-review",
+  "recorded_at": "2026-09-14T06:39:53.610689+00:00",
+  "base_commit": "07f087e9570f2a6cf52205b3d01cae0382d17a35",
+  "api": "0.2 clean break; no compatibility client or deprecated argument handlers",
+  "offline_tests": {
+    "python_3_10": 37,
+    "python_3_13": 37
+  },
+  "live_contract": "docs/validation/live-sdk-rag.json",
+  "live_tests": {
+    "passed": 1,
+    "case": "tests/integration_tests/test_sdk_rag.py::test_live_sdk_rag",
+    "covers": "All eleven tools, memory readiness, native content, plain and reranked Documents without an LLM, server diagnostics, fallback chunks, cleanup"
+  },
+  "smoke_example": "passed against local GoodMem; temporary space deleted",
+  "demo_tests": 12,
+  "demo_retrieval_parity": "16/16 same text, metadata, scores and order",
+  "ruff": "passed",
+  "format": "passed",
+  "mypy": "passed (26 files)",
+  "packaging_tests": {
+    "python_3_10": 2,
+    "python_3_13": 2
+  },
+  "readme_words_including_code": 349,
+  "build": "wheel and sdist built locally",
+  "remote_ci": "not run; no push",
+  "package_source_sha256": {
+    "langchain_goodmem/__init__.py": "842e057306541f1b8fe0919f0016ada7d3ac881e6cfae1bb32008388098ab732",
+    "langchain_goodmem/_connection.py": "4bf6e5338b1d7b3d2fd693d4a0af4067bff23cdb0f8558ed47b95ffc65635659",
+    "langchain_goodmem/ingestion.py": "6eeb1d31899e7f20bb222b9ccf232bc38b68926e9cc6e88362df1c1f2db68423",
+    "langchain_goodmem/retrievers.py": "9be9949a515ad9c27defc1dcc3d90efe64b9393c102b80ac64f115b8948d2800",
+    "langchain_goodmem/tools/__init__.py": "3cb3eb7b2f5719e30ac5efeabd0fc234e2b0b507733ee324092820957a3dbd1d",
+    "langchain_goodmem/tools/_base.py": "e42dde58f23d27c3d2e202eec78dac6a34c9d4f625b94f77bf2435932823ad60",
+    "langchain_goodmem/tools/create_memory.py": "b07a1fdeccba14cfe3b230e0fdfd9b4d60e1302e9707cdbc78c4e3e380c8422f",
+    "langchain_goodmem/tools/create_space.py": "0d774013bcce3d650909d07f8987154d29c3c7f8e34080ee50d963c90a1b9cc0",
+    "langchain_goodmem/tools/delete_memory.py": "1d9388f69e7bf6d9379363097e425e5fa0438a9df7bb264455ed6b6590f7bc77",
+    "langchain_goodmem/tools/delete_space.py": "f8a5c0ecca7a411cc1419ed97c882b7ac83be77d9124f44987d921ed231a0ca2",
+    "langchain_goodmem/tools/get_memory.py": "db3a589793bc065c62c895fdd44bbab5e4238d06c0a2cfdb2be9c1c86414e7ac",
+    "langchain_goodmem/tools/get_space.py": "e6326fab71fb55e385d6a24d990d1ad1cd1cd9d5e12aa1a9a2614e3699b54252",
+    "langchain_goodmem/tools/list_embedders.py": "7f2d7939c63ca2f8f93573e937a69a987f5b1fb7cb77e35381f064e5801a1ad9",
+    "langchain_goodmem/tools/list_memories.py": "258bc0313f2a62dcce033fe8db75237339d797af019f334feef805f54dd03c91",
+    "langchain_goodmem/tools/list_spaces.py": "b0f4fe12216db2237b9c33e7c3013a1328792a352d7e9e4babccb4f917997d50",
+    "langchain_goodmem/tools/retrieve_memories.py": "d271d8439001e5b7018684b21e38522248cbf790f87562a313a5fb2af648135d",
+    "langchain_goodmem/tools/update_space.py": "77e800ca3a2fabba2ef929bf3bebc5e18168419d85b3008f1ec7966682d54259"
+  },
+  "distribution_sha256": {
+    "dist/langchain_goodmem-0.2.0.dev0-py3-none-any.whl": "d5f2be79bab72c5cde09a5070ea5d0a86b690a38265820a0a64bca5c5be3f476",
+    "dist/langchain_goodmem-0.2.0.dev0.tar.gz": "ffa874cda93513b63086a81760fe9e499e62e761c6a6ae417908915c8796459b"
+  },
+  "distribution_checks": "Review documents excluded; README within 500 words; wheel Python files exactly match current package, including removal of _client.py."
+}

@@ -1,87 +1,42 @@
-"""GoodMem List Spaces tool."""
+"""List spaces using SDK pagination."""
 
-import json
 from typing import Any
 
-from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
 
-from langchain_goodmem._client import GoodMemClient
+from langchain_goodmem.tools._base import GoodMemTool, ToolInput
 
 
-class ListSpacesInput(BaseModel):
-    """Input schema for the GoodMem List Spaces tool.
+class ListSpacesInput(ToolInput):
+    """Filter spaces and bound the number returned."""
 
-    This tool takes no user-facing inputs; the schema exists for
-    framework compatibility.
-    """
+    name_filter: str | None = Field(
+        default=None, description="Name filter supporting * and ? wildcards."
+    )
+    label: dict[str, str] | None = None
+    max_items: int | None = Field(
+        default=100, gt=0, description="Maximum spaces to return; null for all."
+    )
 
 
-class GoodMemListSpaces(BaseTool):
-    """List all GoodMem spaces in your account.
-
-    Returns each space with its ID, name, labels, embedder configuration,
-    and access settings.
-
-    Setup:
-        Install ``langchain-goodmem`` and set environment variables:
-
-        .. code-block:: bash
-
-            pip install langchain-goodmem
-            export GOODMEM_API_KEY="your-api-key"
-            export GOODMEM_BASE_URL="http://localhost:8080"
-
-    Instantiate:
-        .. code-block:: python
-
-            from langchain_goodmem import GoodMemListSpaces
-
-            tool = GoodMemListSpaces(
-                goodmem_base_url="http://localhost:8080",
-                goodmem_api_key="your-api-key",
-            )
-
-    Invocation:
-        .. code-block:: python
-
-            result = tool.invoke({})
-    """
+class GoodMemListSpaces(GoodMemTool):
+    """List matching spaces, following SDK pages up to max_items."""
 
     name: str = "goodmem_list_spaces"
-    description: str = (
-        "List all GoodMem spaces. Returns each space with its ID, name, "
-        "embedder configuration, and access settings."
-    )
+    description: str = "List accessible GoodMem spaces, optionally filtered by name or labels. Returns a list of spaces."
     args_schema: type[BaseModel] = ListSpacesInput
 
-    goodmem_base_url: str = Field(description="GoodMem API base URL.")
-    goodmem_api_key: str = Field(description="GoodMem API key.")
-    goodmem_verify_ssl: bool = Field(
-        default=True, description="Whether to verify SSL certificates."
-    )
-
-    def _run(self, **kwargs: Any) -> str:
-        """List all spaces.
-
-        Args:
-            **kwargs: Additional keyword arguments (unused).
-
-        Returns:
-            JSON string with the list of spaces.
-        """
-        client = GoodMemClient(
-            base_url=self.goodmem_base_url,
-            api_key=self.goodmem_api_key,
-            verify_ssl=self.goodmem_verify_ssl,
-        )
-        try:
-            spaces = client.list_spaces()
-            result: dict[str, Any] = {
-                "success": True,
-                "spaces": spaces,
-                "totalSpaces": len(spaces),
-            }
-        except Exception as e:
-            result = {"success": False, "error": str(e)}
-        return json.dumps(result)
+    def _run(
+        self,
+        name_filter: str | None = None,
+        label: dict[str, str] | None = None,
+        max_items: int | None = 100,
+    ) -> list[dict[str, Any]]:
+        """Return SDK space dictionaries within the requested limit."""
+        with self._session() as client:
+            return [
+                space.model_dump(mode="json", exclude_none=True)
+                for space in client.spaces.list(
+                    name_filter=name_filter, label=label, max_items=max_items
+                )
+            ]

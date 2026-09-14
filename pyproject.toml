@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "langchain-goodmem"
-version = "0.1.0"
+version = "0.2.0.dev0"
 description = "LangChain integration for GoodMem: long-term agent memory with semantic storage and retrieval."
 license = "MIT"
 license-files = ["LICENSE"]
@@ -24,8 +24,8 @@ classifiers = [
 ]
 requires-python = ">=3.10.0,<4.0.0"
 dependencies = [
+    "goodmem>=0.1.34,<0.2.0",
     "langchain-core>=1.0.0,<2.0.0",
-    "httpx>=0.27.0,<1.0.0",
     "pydantic>=2.7.4,<3.0.0",
 ]
 
@@ -56,6 +56,19 @@ typing = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["langchain_goodmem"]
+
+[tool.hatch.build.targets.sdist]
+only-include = [
+    "langchain_goodmem",
+    "tests",
+    "examples",
+    ".gitignore",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE",
+    "pyproject.toml",
+    "uv.lock",
+]
 
 [tool.ruff.format]
 docstring-code-format = true

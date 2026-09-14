@@ -1,129 +1,79 @@
-"""GoodMem Create Memory tool."""
+"""Create a memory and optionally wait for its indexing to finish."""
 
-import json
 from typing import Any
 
-from langchain_core.tools import BaseTool
+from langchain_core.tools import ToolException
 from pydantic import BaseModel, Field
 
-from langchain_goodmem._client import GoodMemClient
+from langchain_goodmem.ingestion import wait_for_memory
+from langchain_goodmem.tools._base import GoodMemTool, ToolInput
 
 
-class CreateMemoryInput(BaseModel):
-    """Input schema for the GoodMem Create Memory tool."""
+class CreateMemoryInput(ToolInput):
+    """Supply exactly one of original_content or file_path."""
 
-    space_id: str = Field(
-        description="The UUID of the space to store the memory in.",
+    space_id: str = Field(description="UUID of the space to store the memory in.")
+    original_content: str | None = Field(default=None, description="Text to store.")
+    file_path: str | None = Field(default=None, description="Local file to upload.")
+    content_type: str | None = None
+    original_content_ref: str | None = Field(
+        default=None, description="Source URI for citations; does not download content."
     )
-    text_content: str | None = Field(
-        default=None,
-        description=(
-            "Plain text content to store as memory. "
-            "If both file_path and text_content are provided, "
-            "the file takes priority."
-        ),
+    metadata: dict[str, Any] | None = None
+    memory_id: str | None = Field(
+        default=None, description="Optional client-assigned UUID."
     )
-    file_path: str | None = Field(
-        default=None,
-        description=(
-            "Local file path to upload as memory (PDF, DOCX, image, etc.). "
-            "Content type is auto-detected from the file extension."
-        ),
+    wait: bool = Field(
+        default=True, description="Wait for this memory to finish indexing."
     )
-    metadata: dict[str, Any] | None = Field(
-        default=None,
-        description="Optional key-value metadata as a dictionary.",
+    indexing_timeout: float = Field(
+        default=60, ge=0, description="Polling timeout in seconds."
     )
 
 
-class GoodMemCreateMemory(BaseTool):
-    """Store a document as a new memory in a GoodMem space.
-
-    The memory is processed asynchronously: chunked into searchable pieces
-    and embedded into vectors. Accepts a local file path or plain text.
-
-    Setup:
-        Install ``langchain-goodmem`` and set environment variables:
-
-        .. code-block:: bash
-
-            pip install langchain-goodmem
-            export GOODMEM_API_KEY="your-api-key"
-            export GOODMEM_BASE_URL="http://localhost:8080"
-
-    Instantiate:
-        .. code-block:: python
-
-            from langchain_goodmem import GoodMemCreateMemory
-
-            tool = GoodMemCreateMemory(
-                goodmem_base_url="http://localhost:8080",
-                goodmem_api_key="your-api-key",
-            )
-
-    Invocation with text:
-        .. code-block:: python
-
-            result = tool.invoke({
-                "space_id": "space-uuid",
-                "text_content": "Some important information.",
-            })
-
-    Invocation with file:
-        .. code-block:: python
-
-            result = tool.invoke({
-                "space_id": "space-uuid",
-                "file_path": "/path/to/document.pdf",
-            })
-    """
+class GoodMemCreateMemory(GoodMemTool):
+    """Store text or a file, waiting for indexing by default."""
 
     name: str = "goodmem_create_memory"
     description: str = (
-        "Store a document as a new memory in a GoodMem space. "
-        "Accepts a local file path or plain text. "
-        "The memory is chunked and embedded asynchronously."
+        "Create a memory from exactly one of original_content or file_path. "
+        "Waits for indexing by default. Returns the memory's SDK fields. "
+        "If waiting fails, the error includes the created memory ID; check it "
+        "before creating another memory."
     )
     args_schema: type[BaseModel] = CreateMemoryInput
-
-    goodmem_base_url: str = Field(description="GoodMem API base URL.")
-    goodmem_api_key: str = Field(description="GoodMem API key.")
-    goodmem_verify_ssl: bool = Field(
-        default=True, description="Whether to verify SSL certificates."
-    )
 
     def _run(
         self,
         space_id: str,
-        text_content: str | None = None,
+        original_content: str | None = None,
         file_path: str | None = None,
+        content_type: str | None = None,
+        original_content_ref: str | None = None,
         metadata: dict[str, Any] | None = None,
-        **kwargs: Any,
-    ) -> str:
-        """Create a memory in the specified space.
-
-        Args:
-            space_id: The target space UUID.
-            text_content: Plain text content.
-            file_path: Path to a local file.
-            metadata: Optional metadata dictionary.
-            **kwargs: Additional keyword arguments (unused).
-
-        Returns:
-            JSON string with the operation result.
-        """
-        client = GoodMemClient(
-            base_url=self.goodmem_base_url,
-            api_key=self.goodmem_api_key,
-            verify_ssl=self.goodmem_verify_ssl,
-        )
-        try:
-            result = client.create_memory(
+        memory_id: str | None = None,
+        wait: bool = True,
+        indexing_timeout: float = 60,
+    ) -> dict[str, Any]:
+        """Create a memory and return its fields, retaining its ID on wait failures."""
+        content: dict[str, Any] = {
+            "original_content": original_content,
+            "file_path": file_path,
+        }
+        with self._session() as client:
+            memory = client.memories.create(
                 space_id=space_id,
-                text_content=text_content,
-                file_path=file_path,
+                content_type=content_type,
+                original_content_ref=original_content_ref,
                 metadata=metadata,
+                memory_id=memory_id,
+                **content,
             )
-        except Exception as e:
-            result = {"success": False, "error": str(e)}
-        return json.dumps(result)
+            if wait:
+                try:
+                    memory = wait_for_memory(client, memory.memory_id, indexing_timeout)
+                except Exception as exc:
+                    raise ToolException(
+                        f"Memory {memory.memory_id} was created, but waiting for indexing failed: {exc}"
+                    ) from exc
+            return memory.model_dump(mode="json", exclude_none=True)
