@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1 — 2026-09-14
+
+`GoodMemRetriever` now tolerates status codes introduced by newer GoodMem servers. The SDK decodes these codes as `None`; they no longer cause the retriever to discard Documents or raise an error. Known retrieval failures still raise `GoodMemRetrievalError`. Regression tests exercise both `invoke` and `ainvoke` through the SDK's HTTP transport.
+
 ## 0.2.0 — 2026-09-14
 
 0.2 is an intentional API break. The integration uses the official `goodmem` SDK and adds `GoodMemRetriever`, a LangChain `BaseRetriever` returning Documents with joined source metadata and identifiers.

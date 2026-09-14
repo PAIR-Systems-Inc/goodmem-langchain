@@ -1,6 +1,7 @@
 """Document retrieval and LangChain interoperability over the real SDK."""
 
 import json
+from copy import deepcopy
 from typing import Any
 
 import httpx
@@ -8,6 +9,7 @@ import pytest
 from goodmem.errors import GoodMemError
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.messages import ToolMessage
+from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import ToolException, create_retriever_tool
 from pydantic import ValidationError
 
@@ -162,9 +164,7 @@ def test_reranking_and_standard_query_only_tool(wire: Wire) -> None:
     }
 
 
-@pytest.mark.parametrize(
-    "code", ["RERANKING_FAILED", "VECTOR_SEARCH_PARTIAL", "FUTURE_STATUS"]
-)
+@pytest.mark.parametrize("code", ["RERANKING_FAILED", "VECTOR_SEARCH_PARTIAL"])
 def test_retriever_surfaces_incomplete_search(wire: Wire, code: str) -> None:
     wire.responses.append(
         ndjson(
@@ -176,6 +176,45 @@ def test_retriever_surfaces_incomplete_search(wire: Wire, code: str) -> None:
     with pytest.raises(GoodMemRetrievalError, match="Diagnostic") as error:
         GoodMemRetriever(client=wire.sdk, space_ids=["space-1"]).invoke("question")
     assert error.value.statuses[0]["message"] == "Diagnostic"
+
+
+@pytest.mark.parametrize("use_async", [False, True])
+async def test_future_status_preserves_documents_and_callbacks(
+    wire: Wire, use_async: bool
+) -> None:
+    after = deepcopy(CHUNK)
+    after["retrievedItem"]["chunk"]["chunk"].update(
+        chunkId="chunk-2", chunkText="Evidence after the unfamiliar status"
+    )
+    wire.responses.append(
+        ndjson(
+            {"memoryDefinition": MEMORY},
+            CHUNK,
+            {
+                "status": {
+                    "code": "TEST_ONLY_FUTURE_RETRIEVAL_STATUS_9E4AD2",
+                    "message": "Future server notice",
+                    "details": {"feature": "future-feature"},
+                }
+            },
+            after,
+        )
+    )
+    recorder = Recorder()
+    retriever = GoodMemRetriever(client=wire.sdk, space_ids=["space-1"])
+    config: RunnableConfig = {"callbacks": [recorder]}
+    docs = (
+        await retriever.ainvoke("question", config=config)
+        if use_async
+        else retriever.invoke("question", config=config)
+    )
+    assert [doc.page_content for doc in docs] == [
+        "Retrieved evidence",
+        "Evidence after the unfamiliar status",
+    ]
+    assert [doc.id for doc in docs] == ["chunk-1", "chunk-2"]
+    assert all(doc.metadata["source"] == MEMORY["metadata"]["source"] for doc in docs)
+    assert recorder.events == ["start", "end"]
 
 
 @pytest.mark.parametrize(

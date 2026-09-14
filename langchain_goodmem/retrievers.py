@@ -35,12 +35,18 @@ def _is_informational(status: GoodMemStatus) -> bool:
 
 
 def checked_events(events: Iterable[RetrieveMemoryEvent]) -> list[RetrieveMemoryEvent]:
-    """Apply the Document retriever's strict policy to non-informational statuses."""
+    """Raise for known failures, tolerating codes introduced by a newer server.
+
+    The SDK decodes unfamiliar status codes as None. Their presence must not
+    discard useful Documents or prevent retrieval after a server upgrade.
+    """
     events = list(events)
     failures = [
         event.status.model_dump(exclude_none=True)
         for event in events
-        if event.status is not None and not _is_informational(event.status)
+        if event.status is not None
+        and event.status.code is not None
+        and not _is_informational(event.status)
     ]
     if failures:
         raise GoodMemRetrievalError(
