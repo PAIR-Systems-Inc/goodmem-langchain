@@ -25,7 +25,6 @@ from langchain_goodmem import (
     GoodMemListEmbedders,
     GoodMemListMemories,
     GoodMemListSpaces,
-    GoodMemRetrievalError,
     GoodMemRetrieveMemories,
     GoodMemRetriever,
     GoodMemUpdateSpace,
@@ -142,10 +141,16 @@ def test_live_sdk_rag() -> None:
                 )
                 assert any("retrieved_item" in event for event in events)
                 if resource == "reranker_id":
-                    with pytest.raises(GoodMemRetrievalError, match="RERANKING_FAILED"):
-                        GoodMemRetriever(
-                            client=sdk, space_ids=[sid], reranker_id=missing
-                        ).invoke("Cobalt owner")
+                    # Retrieval status contract, Q4a: the fallback chunks the
+                    # server returned are kept and flagged, not discarded.
+                    docs = GoodMemRetriever(
+                        client=sdk, space_ids=[sid], reranker_id=missing
+                    ).invoke("Cobalt owner")
+                    assert docs, "fallback chunks must be returned"
+                    assert docs[0].metadata["goodmem_partial"] is True
+                    assert code in {
+                        s["code"] for s in docs[0].metadata["goodmem_statuses"]
+                    }
             report["sdk_tool_preserves_statuses_and_fallback_chunks"] = True
             report["document_retriever_reports_reranker_failure"] = True
             invoke(GoodMemDeleteMemory, memory_id=mid)

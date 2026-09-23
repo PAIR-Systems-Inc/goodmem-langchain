@@ -49,6 +49,8 @@ Filters use [GoodMem expressions](https://docs.goodmem.ai/docs/reference/filter-
 
 The retriever returns Documents with source metadata, memory/chunk/space IDs, and scores. It supports LCEL, callbacks, batching, per-call `k`, and `ainvoke` through LangChain's thread executor.
 
+If the server reports a real problem during a search — a reranker was unavailable, one space was unreachable — the Documents it did return are still returned, and each carries `metadata["goodmem_partial"] = True` and `metadata["goodmem_statuses"]` saying why. A problem that left no Documents at all returns an empty list and emits a `UserWarning` and a warning log line with the statuses, so it is distinguishable from a search that matched nothing. Neither case raises. Notices that carry no loss (`FEATURE_DISABLED`, `LLM_CAPABILITY_INFERRED`) are dropped; a status code this version does not know is reported as `UNKNOWN`.
+
 For reranking, add `reranker_id="your-reranker-uuid"` and optionally `fetch_k=20`. **Reranking requires no LLM.**
 
 ## Give an agent a search tool
@@ -66,7 +68,7 @@ The agent supplies only a query. Spaces and filters remain configured by the dev
 
 ## Other tools and development
 
-The package also provides space/memory management tools. `GoodMemRetrieveMemories` returns SDK events, including chunks, optional summaries, and statuses; `GoodMemRetriever` raises on incomplete retrieval. Tools use SDK data shapes and LangChain `ToolException` handling.
+The package also provides space/memory management tools. `GoodMemRetrieveMemories` returns SDK events, including chunks, optional summaries, and statuses; `GoodMemRetriever` flags incomplete retrieval on the Documents' metadata rather than raising. Tools use SDK data shapes and LangChain `ToolException` handling.
 
 See [the smoke example](examples/live_smoke_test.py) for a complete workflow.
 
