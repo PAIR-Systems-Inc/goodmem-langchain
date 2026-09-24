@@ -104,9 +104,12 @@ async def test_async_callbacks_and_lcel(wire: Wire) -> None:
         await chain.ainvoke("question", config={"callbacks": [recorder]})
         == "Retrieved evidence"
     )
-    with pytest.raises(GoodMemRetrievalError):
-        await retriever.ainvoke("question", config={"callbacks": [recorder]})
-    assert recorder.events == ["start", "end", "start", "error"]
+    # Contract Q4b: a failed search is empty and flagged, not raised.
+    with pytest.warns(UserWarning, match="EMBEDDER_FAILED"):
+        assert (
+            await retriever.ainvoke("question", config={"callbacks": [recorder]}) == []
+        )
+    assert recorder.events == ["start", "end", "start", "end"]
 
 
 def test_reranking_and_standard_query_only_tool(wire: Wire) -> None:
@@ -173,9 +176,13 @@ def test_retriever_surfaces_incomplete_search(wire: Wire, code: str) -> None:
             {"status": {"code": code, "message": "Diagnostic"}},
         )
     )
-    with pytest.raises(GoodMemRetrievalError, match="Diagnostic") as error:
-        GoodMemRetriever(client=wire.sdk, space_ids=["space-1"]).invoke("question")
-    assert error.value.statuses[0]["message"] == "Diagnostic"
+    # Contract Q4a: the Documents the server returned are kept and flagged.
+    docs = GoodMemRetriever(client=wire.sdk, space_ids=["space-1"]).invoke("question")
+    assert [doc.page_content for doc in docs] == ["Retrieved evidence"]
+    assert docs[0].metadata["goodmem_partial"] is True
+    assert docs[0].metadata["goodmem_statuses"] == [
+        {"code": code, "message": "Diagnostic"}
+    ]
 
 
 @pytest.mark.parametrize("use_async", [False, True])
@@ -215,6 +222,43 @@ async def test_future_status_preserves_documents_and_callbacks(
     assert [doc.id for doc in docs] == ["chunk-1", "chunk-2"]
     assert all(doc.metadata["source"] == MEMORY["metadata"]["source"] for doc in docs)
     assert recorder.events == ["start", "end"]
+    # Contract Q3: surfaced as UNKNOWN and flagged, never dropped, never raised.
+    assert all(doc.metadata["goodmem_partial"] is True for doc in docs)
+    status = docs[0].metadata["goodmem_statuses"][0]
+    assert status["code"] == "UNKNOWN" and status["unrecognized"] is True
+    assert status["message"] == "Future server notice"
+
+
+def test_feature_disabled_is_informational_whatever_its_details(wire: Wire) -> None:
+    """Contract Q1: the code alone decides; details are not inspected."""
+    wire.responses.append(
+        ndjson(
+            {
+                "status": {
+                    "code": "FEATURE_DISABLED",
+                    "message": "Reranking disabled: no reranker configured.",
+                    "details": {
+                        "feature": "reranking",
+                        "required_param": "reranker_id",
+                    },
+                }
+            },
+            CHUNK,
+            {"memoryDefinition": MEMORY},
+        )
+    )
+    docs = GoodMemRetriever(client=wire.sdk, space_ids=["space-1"]).invoke("question")
+    assert len(docs) == 1
+    assert "goodmem_partial" not in docs[0].metadata
+    assert "goodmem_statuses" not in docs[0].metadata
+
+
+def test_clean_retrieval_metadata_is_unchanged(wire: Wire) -> None:
+    """The flag keys appear only on degraded retrievals, so a clean result's
+    metadata is exactly what 0.2.1 produced."""
+    wire.responses.append(ndjson(CHUNK, {"memoryDefinition": MEMORY}))
+    docs = GoodMemRetriever(client=wire.sdk, space_ids=["space-1"]).invoke("question")
+    assert not {"goodmem_partial", "goodmem_statuses"} & docs[0].metadata.keys()
 
 
 @pytest.mark.parametrize(

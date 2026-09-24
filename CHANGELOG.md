@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+`GoodMemRetriever` follows the retrieval status contract decided on 2026-09-23, which every GoodMem integration now shares:
+
+- **Statuses never raise.** A retrieval that reported a problem *and* returned Documents keeps those Documents, each carrying `metadata["goodmem_partial"] = True` and `metadata["goodmem_statuses"]`. Previously the whole result was discarded with `GoodMemRetrievalError`. A problem that left no Documents returns `[]` and emits a `UserWarning` and a warning log line with the statuses; previously it raised. Clean retrievals are unchanged: the two keys are present only when something went wrong.
+- **Unknown status codes are surfaced, not dropped.** A code introduced by a newer server (decoded as `None` by the SDK) is reported as `UNKNOWN` with `unrecognized: True` and flags the result partial. 0.2.1 silently ignored it, so a server upgrade could change behaviour without any signal.
+- **`FEATURE_DISABLED` is informational by its code alone.** The server defines it as "feature disabled due to missing configuration"; its details are no longer inspected.
+- `GoodMemRetrievalError` is still raised for a malformed stream (a chunk whose memory definition never arrived) and remains exported. The internal `checked_events` helper is replaced by `classify_statuses`.
+
 ## 0.2.1 — 2026-09-14
 
 `GoodMemRetriever` now tolerates status codes introduced by newer GoodMem servers. The SDK decodes these codes as `None`; they no longer cause the retriever to discard Documents or raise an error. Known retrieval failures still raise `GoodMemRetrievalError`. Regression tests exercise both `invoke` and `ainvoke` through the SDK's HTTP transport.
