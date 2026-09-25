@@ -24,7 +24,7 @@ from goodmem import Goodmem
 from langchain_core.documents import Document
 from langchain_goodmem import GoodMemRetriever, add_documents
 
-space_id = "your-space-uuid"
+space_id = "5f6b1c2e-8a4d-4e3b-9c7a-2d1e0f9a8b7c"  # your space's UUID
 with Goodmem(
     base_url=os.environ["GOODMEM_BASE_URL"],
     api_key=os.environ["GOODMEM_API_KEY"],
@@ -36,22 +36,20 @@ with Goodmem(
         )
     ])
 
-retriever = GoodMemRetriever(
-    space_ids=[space_id], k=5, filter="CAST(val('$.team') AS TEXT) = 'blue'",
-)
+retriever = GoodMemRetriever(space_ids=[space_id], k=5, metadata_filter={"team": "blue"})
 for document in retriever.invoke("Who owns Cobalt's launch?"):
     print(document.page_content, document.metadata["source"])
 ```
 
 `add_documents` batches text and metadata through the SDK and waits for indexing by default. Set `wait=False` for background ingestion, then use `wait_for_memory(client, memory_id)` when readiness matters. Optional Document IDs must be UUIDs; existing IDs produce conflicts. `GoodMemIngestionError.created_memory_ids` identifies successful writes if part of ingestion fails.
 
-Filters use [GoodMem expressions](https://docs.goodmem.ai/docs/reference/filter-expressions/) and execute on the server before retrieval. Omit `filter` to search all memories in the configured spaces. Searches run once; empty results return immediately.
+`metadata_filter` pairs must all match; values are escaped and typed. Build richer filters with `langchain_goodmem.filters` (`all_of`, `compare`, `one_of`); never format user input into `filter`. Empty results return immediately.
 
 The retriever returns Documents with source metadata, memory/chunk/space IDs, and scores. It supports LCEL, callbacks, batching, per-call `k`, and `ainvoke` through LangChain's thread executor.
 
 If the server reports a real problem during a search — a reranker was unavailable, one space was unreachable — the Documents it did return are still returned, and each carries `metadata["goodmem_partial"] = True` and `metadata["goodmem_statuses"]` saying why. A problem that left no Documents at all returns an empty list and emits a `UserWarning` and a warning log line with the statuses, so it is distinguishable from a search that matched nothing. Neither case raises. Notices that carry no loss (`FEATURE_DISABLED`, `LLM_CAPABILITY_INFERRED`) are dropped; a status code this version does not know is reported as `UNKNOWN`.
 
-For reranking, add `reranker_id="your-reranker-uuid"` and optionally `fetch_k=20`. **Reranking requires no LLM.**
+For reranking, set `reranker_id` and optionally `fetch_k=20`. **Reranking requires no LLM.**
 
 ## Give an agent a search tool
 
@@ -69,6 +67,8 @@ The agent supplies only a query. Spaces and filters remain configured by the dev
 ## Other tools and development
 
 The package also provides space/memory management tools. `GoodMemRetrieveMemories` returns SDK events, including chunks, optional summaries, and statuses; `GoodMemRetriever` flags incomplete retrieval on the Documents' metadata rather than raising. Tools use SDK data shapes and LangChain `ToolException` handling.
+
+IDs must be UUIDs because the SDK puts them unescaped into URL paths. Model file uploads need `GoodMemCreateMemory(upload_dir="/srv/uploads")`, confined there, symlinks resolved.
 
 See [the smoke example](examples/live_smoke_test.py) for a complete workflow.
 

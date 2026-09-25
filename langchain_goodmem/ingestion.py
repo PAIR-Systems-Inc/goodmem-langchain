@@ -9,6 +9,7 @@ from goodmem.models.memory import Memory
 from langchain_core.documents import Document
 
 from langchain_goodmem._connection import GoodMemSDK
+from langchain_goodmem._ids import require_uuid
 
 
 class GoodMemIngestionError(RuntimeError):
@@ -43,17 +44,23 @@ def add_documents(
     Raises:
         GoodMemIngestionError: A per-document write or indexing wait failed.
             created_memory_ids identifies successful writes; they are not rolled back.
-        ValueError: The indexing timeout is negative.
+        ValueError: The indexing timeout is negative, or ``space_id`` or a
+            Document ID is not a UUID. Nothing is written in either case.
     """
     if indexing_timeout < 0:
         raise ValueError("indexing_timeout must be nonnegative")
+    space_id = require_uuid(space_id, "space_id")
     requests = [
         MemoryCreationRequest.model_validate(
             {
                 "space_id": space_id,
                 "original_content": document.page_content,
                 "metadata": document.metadata,
-                **({"memory_id": document.id} if document.id is not None else {}),
+                **(
+                    {"memory_id": require_uuid(document.id, "Document.id")}
+                    if document.id is not None
+                    else {}
+                ),
             }
         )
         for document in documents
@@ -96,11 +103,14 @@ def wait_for_memory(
 
     ``timeout`` limits polling; an in-flight request is bounded separately by
     the SDK client's HTTP timeout. The caller retains ownership of the client.
+    ``memory_id`` is a URL path segment, so a value that is not a UUID raises
+    ``ValueError`` before any request is made.
     """
     if timeout < 0 or poll_interval <= 0:
         raise ValueError(
             "timeout must be nonnegative and poll_interval must be positive"
         )
+    memory_id = require_uuid(memory_id, "memory_id")
     deadline = time.monotonic() + timeout
     while True:
         memory = cast(GoodMemSDK, client).memories.get(id=memory_id)

@@ -4,13 +4,14 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from langchain_goodmem._ids import UUIDStr
 from langchain_goodmem.tools._base import GoodMemTool, ToolInput
 
 
 class UpdateSpaceInput(ToolInput):
     """Mutable space fields. Replace and merge labels are mutually exclusive."""
 
-    space_id: str = Field(description="UUID of the space to update.")
+    space_id: UUIDStr = Field(description="UUID of the space to update.")
     name: str | None = None
     replace_labels: dict[str, str] | None = None
     merge_labels: dict[str, str] | None = None
@@ -34,6 +35,7 @@ class GoodMemUpdateSpace(GoodMemTool):
         merge_labels: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """Update supplied fields and return the space's SDK fields."""
+        space_id = self._uuid(space_id, "space_id")
         request = {
             key: value
             for key, value in {

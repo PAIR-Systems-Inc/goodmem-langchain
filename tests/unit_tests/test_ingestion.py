@@ -7,7 +7,7 @@ import pytest
 from langchain_core.documents import Document
 
 from langchain_goodmem import GoodMemIngestionError, add_documents
-from tests.unit_tests.conftest import MEMORY, Wire
+from tests.unit_tests.conftest import MEMORY, MEMORY_ID, MEMORY_ID_2, SPACE_ID, Wire
 
 
 def test_add_documents_preserves_metadata_ids_and_waits(wire: Wire) -> None:
@@ -25,7 +25,7 @@ def test_add_documents_preserves_metadata_ids_and_waits(wire: Wire) -> None:
     ]
     memories = [
         MEMORY | {"memoryId": mid, "metadata": document.metadata}
-        for mid, document in zip([documents[0].id, "memory-2"], documents)
+        for mid, document in zip([documents[0].id, MEMORY_ID_2], documents)
     ]
     wire.responses.extend(
         [
@@ -41,8 +41,8 @@ def test_add_documents_preserves_metadata_ids_and_waits(wire: Wire) -> None:
             *(httpx.Response(200, json=m) for m in memories),
         ]
     )
-    ids = add_documents(wire.sdk, "space-1", iter(documents))
-    assert ids == [documents[0].id, "memory-2"]
+    ids = add_documents(wire.sdk, SPACE_ID, iter(documents))
+    assert ids == [documents[0].id, MEMORY_ID_2]
     request = wire.requests[0]
     assert request.url.path == "/v1/memories:batchCreate"
     items = json.loads(request.content)["requests"]
@@ -72,8 +72,8 @@ def test_background_ingestion_returns_ids_without_polling(wire: Wire) -> None:
         )
     )
     assert add_documents(
-        wire.sdk, "space-1", [Document(page_content="Text")], wait=False
-    ) == ["memory-1"]
+        wire.sdk, SPACE_ID, [Document(page_content="Text")], wait=False
+    ) == [MEMORY_ID]
     assert len(wire.requests) == 1
 
 
@@ -96,15 +96,15 @@ def test_partial_batch_retains_created_ids(wire: Wire) -> None:
     with pytest.raises(GoodMemIngestionError, match="ID already exists") as error:
         add_documents(
             wire.sdk,
-            "space-1",
+            SPACE_ID,
             [Document(page_content="First"), Document(page_content="Second")],
         )
-    assert error.value.created_memory_ids == ["memory-1"]
+    assert error.value.created_memory_ids == [MEMORY_ID]
     assert len(wire.requests) == 1
 
 
 def test_indexing_timeout_retains_all_created_ids(wire: Wire) -> None:
-    second = MEMORY | {"memoryId": "memory-2"}
+    second = MEMORY | {"memoryId": MEMORY_ID_2}
     wire.responses.extend(
         [
             httpx.Response(
@@ -121,14 +121,14 @@ def test_indexing_timeout_retains_all_created_ids(wire: Wire) -> None:
     with pytest.raises(GoodMemIngestionError, match="exceeded") as error:
         add_documents(
             wire.sdk,
-            "space-1",
+            SPACE_ID,
             [Document(page_content="First"), Document(page_content="Second")],
             indexing_timeout=0,
         )
-    assert error.value.created_memory_ids == ["memory-1", "memory-2"]
+    assert error.value.created_memory_ids == [MEMORY_ID, MEMORY_ID_2]
     assert [request.method for request in wire.requests] == ["POST", "GET"]
 
 
 def test_empty_input_does_not_connect(wire: Wire) -> None:
-    assert add_documents(wire.sdk, "space-1", []) == []
+    assert add_documents(wire.sdk, SPACE_ID, []) == []
     assert not wire.requests

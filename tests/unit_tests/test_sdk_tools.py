@@ -27,24 +27,35 @@ from langchain_goodmem import (
     GoodMemUpdateSpace,
     wait_for_memory,
 )
-from tests.unit_tests.conftest import CHUNK, MEMORY, SPACE, Wire, ndjson
+from tests.unit_tests.conftest import (
+    CHUNK,
+    EMBEDDER_ID,
+    LLM_ID,
+    MEMORY,
+    MEMORY_ID,
+    RERANKER_ID,
+    SPACE,
+    SPACE_ID,
+    Wire,
+    ndjson,
+)
 
 
 def test_space_crud_uses_sdk_defaults_and_fields(wire: Wire) -> None:
     wire.responses.extend([httpx.Response(200, json=SPACE)] * 3 + [httpx.Response(204)])
     created = GoodMemCreateSpace(client=wire.sdk).invoke(
-        {"name": "Docs", "embedder_id": "embedder-1"}
+        {"name": "Docs", "embedder_id": EMBEDDER_ID}
     )
-    assert created["space_id"] == "space-1"
+    assert created["space_id"] == SPACE_ID
     body = json.loads(wire.requests[0].content)
     assert body["defaultChunkingConfig"]["recursive"]["chunkOverlap"] == 64
     assert wire.requests[0].method == "POST"  # No find/reuse policy before creation.
-    assert GoodMemGetSpace(client=wire.sdk).invoke({"space_id": "space-1"}) == created
+    assert GoodMemGetSpace(client=wire.sdk).invoke({"space_id": SPACE_ID}) == created
     GoodMemUpdateSpace(client=wire.sdk).invoke(
-        {"space_id": "space-1", "merge_labels": {"team": "docs"}}
+        {"space_id": SPACE_ID, "merge_labels": {"team": "docs"}}
     )
     assert json.loads(wire.requests[-1].content) == {"mergeLabels": {"team": "docs"}}
-    assert GoodMemDeleteSpace(client=wire.sdk).invoke({"space_id": "space-1"}) is None
+    assert GoodMemDeleteSpace(client=wire.sdk).invoke({"space_id": SPACE_ID}) is None
     assert [r.method for r in wire.requests] == ["POST", "GET", "PUT", "DELETE"]
 
 
@@ -53,7 +64,7 @@ def test_list_tools_follow_sdk_pages_and_respect_limits(wire: Wire, kind: str) -
     model, tool, args = (
         (SPACE, GoodMemListSpaces, {"name_filter": "Doc*"})
         if kind == "spaces"
-        else (MEMORY, GoodMemListMemories, {"space_id": "space-1"})
+        else (MEMORY, GoodMemListMemories, {"space_id": SPACE_ID})
     )
     wire.responses.extend(
         [
@@ -70,7 +81,7 @@ def test_list_tools_follow_sdk_pages_and_respect_limits(wire: Wire, kind: str) -
 
 def test_creation_conflict_is_a_langchain_tool_error(wire: Wire) -> None:
     wire.responses.extend([httpx.Response(409, json={"message": "Already exists"})] * 2)
-    args = {"name": "Docs", "embedder_id": "embedder-1"}
+    args = {"name": "Docs", "embedder_id": EMBEDDER_ID}
     with pytest.raises(ToolException, match="Already exists"):
         GoodMemCreateSpace(client=wire.sdk).invoke(args)
     result = GoodMemCreateSpace(client=wire.sdk, handle_tool_error=True).invoke(
@@ -90,20 +101,24 @@ def test_creation_conflict_is_a_langchain_tool_error(wire: Wire) -> None:
     "content",
     [
         {},
-        {"original_content": "text", "file_path": "unused"},
-        {"file_path": "/nonexistent-goodmem-test-file"},
+        {"original_content": "text", "file_path": "present.txt"},
+        {"file_path": "missing.txt"},
     ],
 )
 def test_sdk_input_and_file_errors_use_langchain_error_handling(
     wire: Wire,
+    tmp_path: Path,
     content: dict[str, str],
 ) -> None:
-    result = GoodMemCreateMemory(client=wire.sdk, handle_tool_error=True).invoke(
+    (tmp_path / "present.txt").write_text("text")
+    result = GoodMemCreateMemory(
+        client=wire.sdk, handle_tool_error=True, upload_dir=tmp_path
+    ).invoke(
         {
             "type": "tool_call",
             "id": "call",
             "name": "goodmem_create_memory",
-            "args": {"space_id": "space-1", **content},
+            "args": {"space_id": SPACE_ID, **content},
         }
     )
     assert isinstance(result, ToolMessage) and result.status == "error"
@@ -122,23 +137,23 @@ def test_creation_waits_for_its_memory_before_search(
     wire.responses.append(ndjson(CHUNK, {"memoryDefinition": MEMORY}))
     result = GoodMemCreateMemory(client=wire.sdk).invoke(
         {
-            "space_id": "space-1",
+            "space_id": SPACE_ID,
             "original_content": "Evidence",
-            "memory_id": "memory-1",
+            "memory_id": MEMORY_ID,
             "metadata": {"source": "https://example.org"},
         }
     )
     assert (
-        result["memory_id"] == "memory-1" and result["processing_status"] == "COMPLETED"
+        result["memory_id"] == MEMORY_ID and result["processing_status"] == "COMPLETED"
     )
     body = json.loads(wire.requests[0].content)
-    assert body["memoryId"] == "memory-1" and body["originalContent"] == "Evidence"
+    assert body["memoryId"] == MEMORY_ID and body["originalContent"] == "Evidence"
     assert all(
-        r.method == "GET" and r.url.path == "/v1/memories/memory-1"
+        r.method == "GET" and r.url.path == f"/v1/memories/{MEMORY_ID}"
         for r in wire.requests[1:]
     )
     assert sleeps.call_count == 2
-    assert GoodMemRetriever(client=wire.sdk, space_ids=["space-1"]).invoke("Evidence")
+    assert GoodMemRetriever(client=wire.sdk, space_ids=[SPACE_ID]).invoke("Evidence")
     assert wire.requests[-1].url.path == "/v1/memories:retrieve"
     assert sleeps.call_count == 2
 
@@ -152,7 +167,7 @@ def test_early_return_can_be_followed_by_explicit_wait(wire: Wire) -> None:
     )
     result = GoodMemCreateMemory(client=wire.sdk).invoke(
         {
-            "space_id": "space-1",
+            "space_id": SPACE_ID,
             "original_content": "Evidence",
             "wait": False,
         }
@@ -182,10 +197,10 @@ def test_wait_failure_reports_created_id_without_retrying_creation(
     wire.responses.extend(
         [httpx.Response(200, json=MEMORY | {"processingStatus": "PENDING"}), response]
     )
-    with pytest.raises(ToolException, match="Memory memory-1 was created") as error:
+    with pytest.raises(ToolException, match=f"Memory {MEMORY_ID} was created") as error:
         GoodMemCreateMemory(client=wire.sdk).invoke(
             {
-                "space_id": "space-1",
+                "space_id": SPACE_ID,
                 "original_content": "Evidence",
                 "indexing_timeout": 0,
             }
@@ -203,7 +218,7 @@ def test_get_memory_uses_native_inline_content_then_delete(wire: Wire) -> None:
         ]
     )
     result = GoodMemGetMemory(client=wire.sdk).invoke(
-        {"memory_id": "memory-1", "include_content": True}
+        {"memory_id": MEMORY_ID, "include_content": True}
     )
     assert (
         result["original_content"] == content
@@ -211,9 +226,7 @@ def test_get_memory_uses_native_inline_content_then_delete(wire: Wire) -> None:
     )
     assert wire.requests[0].url.params["include_content"] == "true"
     assert len(wire.requests) == 1
-    assert (
-        GoodMemDeleteMemory(client=wire.sdk).invoke({"memory_id": "memory-1"}) is None
-    )
+    assert GoodMemDeleteMemory(client=wire.sdk).invoke({"memory_id": MEMORY_ID}) is None
 
 
 def test_retrieval_keeps_sdk_events_even_when_summary_fails(wire: Wire) -> None:
@@ -227,9 +240,9 @@ def test_retrieval_keeps_sdk_events_even_when_summary_fails(wire: Wire) -> None:
     events = GoodMemRetrieveMemories(client=wire.sdk).invoke(
         {
             "message": "question",
-            "space_ids": ["space-1"],
-            "llm_id": "llm-1",
-            "reranker_id": "reranker-1",
+            "space_ids": [SPACE_ID],
+            "llm_id": LLM_ID,
+            "reranker_id": RERANKER_ID,
             "requested_size": 20,
             "max_results": 3,
         }
@@ -254,12 +267,12 @@ def test_sdk_results_are_serialized_by_langchain_for_agents(wire: Wire) -> None:
             "type": "tool_call",
             "name": "goodmem_get_space",
             "id": "call",
-            "args": {"space_id": "space-1"},
+            "args": {"space_id": SPACE_ID},
         }
     )
     assert isinstance(message, ToolMessage) and message.status == "success"
     assert isinstance(message.content, str)
-    assert json.loads(message.content)["space_id"] == "space-1"
+    assert json.loads(message.content)["space_id"] == SPACE_ID
 
 
 def test_connection_settings_are_not_model_arguments(wire: Wire) -> None:
@@ -268,13 +281,13 @@ def test_connection_settings_are_not_model_arguments(wire: Wire) -> None:
         if isinstance(cls, type) and issubclass(cls, BaseTool):
             schema = cls(client=wire.sdk).get_input_schema().model_json_schema()
             assert (
-                not {"client", "goodmem_api_key", "goodmem_base_url"}
+                not {"client", "goodmem_api_key", "goodmem_base_url", "upload_dir"}
                 & schema["properties"].keys()
             )
             assert schema["additionalProperties"] is False
     with pytest.raises(ValidationError):
         GoodMemGetSpace(client=wire.sdk).invoke(
-            {"space_id": "space-1", "goodmem_base_url": "https://unexpected.test"}
+            {"space_id": SPACE_ID, "goodmem_base_url": "https://unexpected.test"}
         )
     assert not wire.requests
 
@@ -285,9 +298,9 @@ def test_file_upload_uses_sdk_multipart(wire: Wire, tmp_path: Path) -> None:
     wire.responses.append(
         httpx.Response(200, json=MEMORY | {"contentType": "application/pdf"})
     )
-    result = GoodMemCreateMemory(client=wire.sdk).invoke(
+    result = GoodMemCreateMemory(client=wire.sdk, upload_dir=tmp_path).invoke(
         {
-            "space_id": "space-1",
+            "space_id": SPACE_ID,
             "file_path": str(path),
             "metadata": {"title": "PDF evidence"},
             "wait": False,
@@ -333,7 +346,7 @@ def test_missing_configuration_fails_without_network(
     monkeypatch.delenv("GOODMEM_BASE_URL", raising=False)
     monkeypatch.delenv("GOODMEM_API_KEY", raising=False)
     with pytest.raises(ValueError, match="Provide client"):
-        GoodMemRetriever(space_ids=["space-1"]).invoke("question")
+        GoodMemRetriever(space_ids=[SPACE_ID]).invoke("question")
 
 
 def test_explicit_string_key_is_stored_as_a_secret() -> None:
