@@ -36,16 +36,14 @@ with Goodmem(
         )
     ])
 
-retriever = GoodMemRetriever(
-    space_ids=[space_id], k=5, filter="CAST(val('$.team') AS TEXT) = 'blue'",
-)
+retriever = GoodMemRetriever(space_ids=[space_id], k=5, metadata_filter={"team": "blue"})
 for document in retriever.invoke("Who owns Cobalt's launch?"):
     print(document.page_content, document.metadata["source"])
 ```
 
 `add_documents` batches text and metadata through the SDK and waits for indexing by default. Set `wait=False` for background ingestion, then use `wait_for_memory(client, memory_id)` when readiness matters. Optional Document IDs must be UUIDs; existing IDs produce conflicts. `GoodMemIngestionError.created_memory_ids` identifies successful writes if part of ingestion fails.
 
-Filters use [GoodMem expressions](https://docs.goodmem.ai/docs/reference/filter-expressions/) and execute on the server before retrieval. Omit `filter` to search all memories in the configured spaces. Searches run once; empty results return immediately.
+`metadata_filter` pairs must all match; values are escaped and typed. Build richer filters with `langchain_goodmem.filters` (`all_of`, `compare`, `one_of`); never format user input into `filter`. Empty results return immediately.
 
 The retriever returns Documents with source metadata, memory/chunk/space IDs, and scores. It supports LCEL, callbacks, batching, per-call `k`, and `ainvoke` through LangChain's thread executor.
 

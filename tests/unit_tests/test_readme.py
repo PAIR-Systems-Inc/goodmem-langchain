@@ -55,6 +55,9 @@ def test_python_blocks_run_as_written(readme_server: RecordingServer) -> None:
     ]
     search = json.loads(readme_server.requests[2][2])
     assert [key["spaceId"] for key in search["spaceKeys"]] == [space_id]
+    assert [key["filter"] for key in search["spaceKeys"]] == [
+        "CAST(val('$.team') AS TEXT) = 'blue'"
+    ]
     assert isinstance(namespace["tool"], BaseTool)
     assert namespace["tool"].response_format == "content_and_artifact"
 
@@ -94,7 +97,14 @@ def test_named_symbols_exist() -> None:
     assert "created_memory_ids" in vars(
         langchain_goodmem.GoodMemIngestionError("", created_memory_ids=[])
     )
-    for argument in ("filter", "reranker_id", "fetch_k", "k", "client"):
+    for argument in (
+        "filter",
+        "metadata_filter",
+        "reranker_id",
+        "fetch_k",
+        "k",
+        "client",
+    ):
         assert f"`{argument}" in README
         assert argument in GoodMemRetriever.model_fields, argument
     assert "upload_dir" in GoodMemCreateMemory.model_fields

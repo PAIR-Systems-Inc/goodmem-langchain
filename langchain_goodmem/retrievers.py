@@ -15,6 +15,7 @@ from pydantic import Field, model_validator
 
 from langchain_goodmem._connection import GoodMemConnection
 from langchain_goodmem._ids import UUIDStr, require_uuid
+from langchain_goodmem.filters import all_of, from_mapping
 
 logger = logging.getLogger(__name__)
 
@@ -153,14 +154,31 @@ class GoodMemRetriever(GoodMemConnection, BaseRetriever):
     reranker_id: UUIDStr | None = None
     filter: str | None = Field(
         default=None,
-        description="GoodMem metadata filter expression applied to every configured space.",
+        description=(
+            "GoodMem metadata filter expression applied to every configured space. "
+            "Sent verbatim: build it with langchain_goodmem.filters, never by "
+            "formatting user or model input into it."
+        ),
+    )
+    metadata_filter: dict[str, str | int | float | bool] | None = Field(
+        default=None,
+        description=(
+            "Field/value pairs that must all match, escaped and cast to each "
+            "value's type (TEXT, NUMERIC or BOOLEAN). Combined with filter by AND."
+        ),
     )
 
     @model_validator(mode="after")
     def _validate_search(self) -> "GoodMemRetriever":
         if self.fetch_k is not None and self.fetch_k < self.k:
             raise ValueError("fetch_k must be at least k")
+        # Build once here so an unsafe value fails when the retriever is
+        # configured, not on the first search.
+        self._filter_expression()
         return self
+
+    def _filter_expression(self) -> str:
+        return all_of(self.filter, from_mapping(self.metadata_filter))
 
     def _get_relevant_documents(
         self,
@@ -190,11 +208,12 @@ class GoodMemRetriever(GoodMemConnection, BaseRetriever):
                 max_results=limit,
                 chronological_resort=False,
             )
-        if self.filter is None:
+        expression = self._filter_expression()
+        if not expression:
             options["space_ids"] = space_ids
         else:
             options["space_keys"] = [
-                SpaceKey.model_validate({"spaceId": sid, "filter": self.filter})
+                SpaceKey.model_validate({"spaceId": sid, "filter": expression})
                 for sid in space_ids
             ]
         with self._session() as client:

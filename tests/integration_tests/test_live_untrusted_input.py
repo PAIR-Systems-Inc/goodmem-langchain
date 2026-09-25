@@ -103,3 +103,50 @@ def test_live_memory_id_cannot_reach_the_space(
     with pytest.raises(ToolException, match="memory_id must be a UUID"):
         GoodMemDeleteMemory(client=sdk)._run(memory_id=payload)
     assert GoodMemGetSpace(client=sdk).invoke({"space_id": sid})["space_id"] == sid
+
+
+def test_live_filter_values_cannot_widen_the_filter(
+    space: tuple[Goodmem, str],
+) -> None:
+    """P34: a value built into a filter is one literal, and types are cast.
+
+    Before langchain_goodmem.filters existed, the only way to filter by a
+    user's value was to format it into ``filter=``; ``x' OR '1'='1`` then
+    matched every row live.
+    """
+    from langchain_core.documents import Document
+
+    from langchain_goodmem import GoodMemRetriever, add_documents
+
+    sdk, sid = space
+    ids = add_documents(
+        sdk,
+        sid,
+        [
+            Document(
+                page_content="Alice keeps the blue ledger.",
+                metadata={"owner": "alice", "archived": False},
+            ),
+            Document(
+                page_content="Bob keeps the red ledger.",
+                metadata={"owner": "bob", "archived": True},
+            ),
+        ],
+        wait=True,
+    )
+    try:
+
+        def owners(metadata_filter: dict[str, str | int | float | bool]) -> set[str]:
+            docs = GoodMemRetriever(
+                client=sdk, space_ids=[sid], k=5, metadata_filter=metadata_filter
+            ).invoke("who keeps a ledger")
+            return {str(d.metadata.get("owner")) for d in docs}
+
+        assert owners({"owner": "x' OR '1'='1"}) == set()
+        assert owners({"owner": "alice"}) == {"alice"}
+        # A boolean compared as TEXT would match nothing; cast as BOOLEAN it
+        # matches exactly the unarchived memory.
+        assert owners({"archived": False}) == {"alice"}
+    finally:
+        for memory_id in ids:
+            GoodMemDeleteMemory(client=sdk).invoke({"memory_id": memory_id})
