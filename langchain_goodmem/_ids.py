@@ -23,6 +23,12 @@ _UUID = re.compile(UUID_PATTERN)
 def require_uuid(value: object, field: str) -> str:
     """Return ``value`` as a lowercase canonical UUID, or raise ``ValueError``.
 
+    The result is always a plain ``str`` holding exactly the characters that
+    were checked, so a ``str`` subclass cannot pass the check and then put a
+    different string into the URL (through an overridden ``lower``,
+    ``__str__`` or ``__format__``). Only strings are accepted: a
+    ``uuid.UUID`` is refused; pass ``str(value)``.
+
     Args:
         value: The ID as supplied by a model, developer or configuration.
         field: The argument name, used in the error message.
@@ -30,13 +36,23 @@ def require_uuid(value: object, field: str) -> str:
     Raises:
         ValueError: ``value`` is not a canonical 8-4-4-4-12 hexadecimal UUID.
     """
-    if isinstance(value, str) and _UUID.fullmatch(value):
-        return value.lower()
-    shown = repr(value)
+    if isinstance(value, str):
+        if _UUID.fullmatch(value):
+            # str.lower, not value.lower: an override must not choose the result.
+            return str.lower(value)
+        shown = str.__repr__(value)
+        expected = "a UUID"
+    else:
+        try:
+            shown = repr(value)
+        except Exception:  # The refusal must not depend on the value's repr.
+            shown = f"a {type(value).__name__}"
+        expected = "a UUID string"
     if len(shown) > 80:
         shown = shown[:77] + "..."
     raise ValueError(
-        f"{field} must be a UUID (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx); got {shown}"
+        f"{field} must be {expected} (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx); "
+        f"got {shown}"
     )
 
 

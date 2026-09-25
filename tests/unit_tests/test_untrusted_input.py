@@ -9,6 +9,7 @@ loopback HTTP server that records every request line it receives.
 
 import json
 import threading
+import uuid
 from collections.abc import Callable, Iterator
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -37,6 +38,7 @@ from langchain_goodmem import (
     add_documents,
     wait_for_memory,
 )
+from langchain_goodmem._ids import require_uuid
 from tests.unit_tests.conftest import CHUNK, MEMORY, SPACE
 
 # The loopback server below is the only socket these tests open.
@@ -346,6 +348,177 @@ def test_valid_ids_are_normalised_in_bodies_and_wait_paths(
         server.sdk, U.upper(), [Document(id=U.upper(), page_content="x")], wait=False
     ) == [U]
     assert json.loads(server.requests[-1][2])["requests"][0]["spaceId"] == U
+
+
+# --- The string that was checked is the string that is sent -----------------
+
+X = "11111111-2222-4333-8444-555555555555"
+
+
+class _Shapeshifter(str):
+    """Holds a valid UUID, but every way of converting it yields a traversal.
+
+    A validator that checks this object and then returns ``value.lower()``,
+    ``str(value)`` or ``f"{value}"`` sends ``../spaces/<X>`` instead of the
+    UUID it checked.
+    """
+
+    def lower(self) -> str:
+        return f"../spaces/{X}"
+
+    def casefold(self) -> str:
+        return f"../spaces/{X}"
+
+    def strip(self, chars: str | None = None) -> str:
+        return f"../spaces/{X}"
+
+    def __str__(self) -> str:
+        return f"../spaces/{X}"
+
+    def __format__(self, spec: str) -> str:
+        return f"../spaces/{X}"
+
+
+def _document_with_id(value: str) -> Document:
+    document = Document(page_content="x")
+    document.id = value  # Assignment keeps the str subclass; the constructor would not.
+    return document
+
+
+def _reassigned_retriever_ids(sdk: Goodmem, value: str) -> Any:
+    retriever = GoodMemRetriever(client=sdk, space_ids=[U], reranker_id=U)
+    retriever.space_ids = [value]
+    retriever.reranker_id = value
+    return retriever.invoke("q")
+
+
+SHAPESHIFTER_CALLS: list[Any] = [
+    pytest.param(
+        lambda sdk, v: GoodMemGetMemory(client=sdk)._run(memory_id=v),
+        [("GET", f"/v1/memories/{U}")],
+        id="GoodMemGetMemory._run",
+    ),
+    pytest.param(
+        lambda sdk, v: GoodMemDeleteMemory(client=sdk)._run(memory_id=v),
+        [("DELETE", f"/v1/memories/{U}")],
+        id="GoodMemDeleteMemory._run",
+    ),
+    pytest.param(
+        lambda sdk, v: GoodMemGetSpace(client=sdk)._run(space_id=v),
+        [("GET", f"/v1/spaces/{U}")],
+        id="GoodMemGetSpace._run",
+    ),
+    pytest.param(
+        lambda sdk, v: GoodMemDeleteSpace(client=sdk)._run(space_id=v),
+        [("DELETE", f"/v1/spaces/{U}")],
+        id="GoodMemDeleteSpace._run",
+    ),
+    pytest.param(
+        lambda sdk, v: GoodMemUpdateSpace(client=sdk)._run(space_id=v, name="R"),
+        [("PUT", f"/v1/spaces/{U}")],
+        id="GoodMemUpdateSpace._run",
+    ),
+    pytest.param(
+        lambda sdk, v: GoodMemListMemories(client=sdk)._run(space_id=v, max_items=1),
+        [("GET", f"/v1/spaces/{U}/memories")],
+        id="GoodMemListMemories._run",
+    ),
+    pytest.param(
+        lambda sdk, v: GoodMemCreateMemory(client=sdk)._run(
+            space_id=v, memory_id=v, original_content="x"
+        ),
+        [("POST", "/v1/memories"), ("GET", f"/v1/memories/{U}")],
+        id="GoodMemCreateMemory._run",
+    ),
+    pytest.param(
+        lambda sdk, v: GoodMemCreateSpace(client=sdk)._run(name="D", embedder_id=v),
+        [("POST", "/v1/spaces")],
+        id="GoodMemCreateSpace._run",
+    ),
+    pytest.param(
+        lambda sdk, v: GoodMemRetrieveMemories(client=sdk)._run(
+            message="q", space_ids=[v], reranker_id=v, llm_id=v
+        ),
+        [("POST", "/v1/memories:retrieve")],
+        id="GoodMemRetrieveMemories._run",
+    ),
+    pytest.param(
+        lambda sdk, v: wait_for_memory(sdk, v),
+        [("GET", f"/v1/memories/{U}")],
+        id="wait_for_memory",
+    ),
+    pytest.param(
+        lambda sdk, v: add_documents(sdk, v, [_document_with_id(v)]),
+        [("POST", "/v1/memories:batchCreate"), ("GET", f"/v1/memories/{U}")],
+        id="add_documents",
+    ),
+    pytest.param(
+        _reassigned_retriever_ids,
+        [("POST", "/v1/memories:retrieve")],
+        id="GoodMemRetriever-reassigned",
+    ),
+]
+
+
+@pytest.mark.parametrize("call,expected", SHAPESHIFTER_CALLS)
+def test_a_str_subclass_cannot_swap_the_checked_id_for_another(
+    server: RecordingServer,
+    call: Callable[[Goodmem, str], Any],
+    expected: list[tuple[str, str]],
+) -> None:
+    """The validator returns a plain str of exactly the characters it checked."""
+    call(server.sdk, _Shapeshifter(U.upper()))
+    sent = [(m, urlsplit(p).path) for m, p in server.lines()]
+    assert sent == expected, f"server received {server.lines()}"
+    for _, path, body in server.requests:
+        assert X not in path and X.encode() not in body, (path, body)
+    # Every POST here carries the ID in its body: it is the UUID that was checked.
+    method, _, body = server.requests[0]
+    assert method != "POST" or U.encode() in body, body
+
+
+def test_require_uuid_returns_a_plain_lowercase_str_of_what_it_checked() -> None:
+    result = require_uuid(_Shapeshifter(U.upper()), "memory_id")
+    assert type(result) is str and result == U
+
+
+def test_require_uuid_refuses_even_when_the_value_cannot_be_printed() -> None:
+    """A raising __repr__ must not turn the refusal into a different error."""
+
+    class Unprintable(str):
+        def __repr__(self) -> str:
+            raise RuntimeError("no repr")
+
+    class Opaque:
+        def __repr__(self) -> str:
+            raise RuntimeError("no repr")
+
+    with pytest.raises(ValueError, match="memory_id must be a UUID"):
+        require_uuid(Unprintable(f"../spaces/{X}"), "memory_id")
+    with pytest.raises(ValueError, match="memory_id must be a UUID string"):
+        require_uuid(Opaque(), "memory_id")
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        pytest.param(lambda sdk, v: wait_for_memory(sdk, v), id="wait_for_memory"),
+        pytest.param(
+            lambda sdk, v: GoodMemDeleteMemory(client=sdk)._run(memory_id=v),
+            id="GoodMemDeleteMemory._run",
+        ),
+    ],
+)
+def test_a_uuid_object_is_refused_with_a_message_saying_to_pass_a_string(
+    server: RecordingServer, call: Callable[[Goodmem, Any], Any]
+) -> None:
+    """0.2.2 accepted uuid.UUID; 0.2.3 needs str(value) (see the CHANGELOG)."""
+    with pytest.raises(ValueError, match="memory_id must be a UUID string"):
+        try:
+            call(server.sdk, uuid.UUID(U))
+        except ToolException as exc:  # The tool's form of the same refusal.
+            raise ValueError(str(exc)) from exc
+    assert server.lines() == [], f"server received {server.lines()}"
 
 
 # --- File uploads -----------------------------------------------------------

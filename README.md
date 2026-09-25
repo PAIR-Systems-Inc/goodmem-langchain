@@ -2,11 +2,11 @@
 
 Use [GoodMem](https://goodmem.ai) from LangChain for document ingestion, retrieval, and agent memory. GoodMem handles storage, chunking, embeddings, and optional reranking.
 
-Version **0.2** breaks 0.1 compatibility; see [CHANGELOG.md](CHANGELOG.md).
+Version **0.2** intentionally breaks compatibility with 0.1. See [CHANGELOG.md](CHANGELOG.md) for migration details.
 
 ## Install and connect
 
-Requires Python 3.10+, a running GoodMem server, an API key, and a space with an embedder.
+Requires Python 3.10+, a running GoodMem server, an API key, and a space configured with an embedder.
 
 ```bash
 pip install langchain-goodmem
@@ -43,7 +43,7 @@ for document in retriever.invoke("Who owns Cobalt's launch?"):
     print(document.page_content, document.metadata["source"])
 ```
 
-`add_documents` batches text and metadata through the SDK and waits for indexing by default. Set `wait=False` for background ingestion, then use `wait_for_memory(client, memory_id)` when readiness matters. Document IDs become memory IDs; existing ones conflict. `GoodMemIngestionError.created_memory_ids` identifies successful writes if part of ingestion fails.
+`add_documents` batches text and metadata through the SDK and waits for indexing by default. Set `wait=False` for background ingestion, then use `wait_for_memory(client, memory_id)` when readiness matters. Optional Document IDs must be UUIDs; existing IDs produce conflicts. `GoodMemIngestionError.created_memory_ids` identifies successful writes if part of ingestion fails.
 
 Filters use [GoodMem expressions](https://docs.goodmem.ai/docs/reference/filter-expressions/) and execute on the server before retrieval. Omit `filter` to search all memories in the configured spaces. Searches run once; empty results return immediately.
 
@@ -64,13 +64,13 @@ tool = create_retriever_tool(
 )
 ```
 
-The agent supplies only a query; spaces and filters stay developer-configured. Retrieved Documents arrive in `ToolMessage.artifact` for citations.
+The agent supplies only a query. Spaces and filters remain configured by the developer. Retrieved Documents are available in `ToolMessage.artifact` for citations.
 
 ## Other tools and development
 
 The package also provides space/memory management tools. `GoodMemRetrieveMemories` returns SDK events, including chunks, optional summaries, and statuses; `GoodMemRetriever` flags incomplete retrieval on the Documents' metadata rather than raising. Tools use SDK data shapes and LangChain `ToolException` handling.
 
-IDs must be UUIDs: the SDK puts them into URL paths unescaped, so anything else, like `../spaces/…`, is refused before any request. `GoodMemCreateMemory` offers the model `file_path` only with `upload_dir` set, refusing paths outside it, symlinks included.
+IDs must be UUIDs because the SDK puts them unescaped into URL paths. `GoodMemCreateMemory` offers `file_path` only inside an operator-set `upload_dir`, symlinks resolved.
 
 See [the smoke example](examples/live_smoke_test.py) for a complete workflow.
 
