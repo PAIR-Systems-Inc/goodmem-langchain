@@ -5,6 +5,7 @@ from typing import Any
 from goodmem.models.space_embedder_config import SpaceEmbedderConfig
 from pydantic import BaseModel, Field
 
+from langchain_goodmem._ids import UUIDStr
 from langchain_goodmem.tools._base import GoodMemTool, ToolInput
 
 
@@ -12,7 +13,7 @@ class CreateSpaceInput(ToolInput):
     """Arguments for creating a space with one embedder."""
 
     name: str = Field(description="Name for the new space.")
-    embedder_id: str = Field(description="UUID of the embedder to use.")
+    embedder_id: UUIDStr = Field(description="UUID of the embedder to use.")
     labels: dict[str, str] | None = None
 
 
@@ -33,6 +34,7 @@ class GoodMemCreateSpace(GoodMemTool):
         labels: dict[str, str] | None = None,
     ) -> dict[str, Any]:
         """Create a space and return its SDK fields as a dictionary."""
+        embedder_id = self._uuid(embedder_id, "embedder_id")
         with self._session() as client:
             space = client.spaces.create(
                 name=name,

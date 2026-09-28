@@ -18,16 +18,25 @@ from langchain_goodmem import (
     GoodMemRetrieveMemories,
     GoodMemRetriever,
 )
-from tests.unit_tests.conftest import CHUNK, MEMORY, Wire, ndjson
+from tests.unit_tests.conftest import (
+    CHUNK,
+    MEMORY,
+    MEMORY_ID,
+    RERANKER_ID,
+    SPACE_ID,
+    SPACE_ID_2,
+    Wire,
+    ndjson,
+)
 
 
 def test_citations_join_by_uuid_and_preserve_metadata_and_scores(wire: Wire) -> None:
     wire.responses.append(ndjson(CHUNK, {"memoryDefinition": MEMORY}, CHUNK))
-    docs = GoodMemRetriever(client=wire.sdk, space_ids=["space-1"]).invoke("question")
+    docs = GoodMemRetriever(client=wire.sdk, space_ids=[SPACE_ID]).invoke("question")
     assert len(docs) == 1
     assert docs[0].id == "chunk-1"
     assert docs[0].metadata == MEMORY["metadata"] | dict(
-        memory_id="memory-1", chunk_id="chunk-1", space_id="space-1", score=-0.82
+        memory_id=MEMORY_ID, chunk_id="chunk-1", space_id=SPACE_ID, score=-0.82
     )
     body = json.loads(wire.requests[0].content)
     assert body["fetchMemory"] is True and body["fetchMemoryContent"] is False
@@ -37,7 +46,7 @@ def test_citations_join_by_uuid_and_preserve_metadata_and_scores(wire: Wire) -> 
 def test_missing_definition_is_an_error(wire: Wire) -> None:
     wire.responses.append(ndjson(CHUNK))
     with pytest.raises(GoodMemRetrievalError, match="Missing memory metadata"):
-        GoodMemRetriever(client=wire.sdk, space_ids=["space-1"]).invoke("question")
+        GoodMemRetriever(client=wire.sdk, space_ids=[SPACE_ID]).invoke("question")
 
 
 def test_original_content_ref_fallback_and_k_cap(wire: Wire) -> None:
@@ -49,7 +58,7 @@ def test_original_content_ref_fallback_and_k_cap(wire: Wire) -> None:
     }
     wire.responses.append(ndjson(CHUNK, other, {"memoryDefinition": memory}))
     docs = GoodMemRetriever(
-        client=wire.sdk, space_ids=["space-1"], k=1, fetch_k=2
+        client=wire.sdk, space_ids=[SPACE_ID], k=1, fetch_k=2
     ).invoke("question")
     assert (
         len(docs) == 1 and docs[0].metadata["source"] == "https://example.org/fallback"
@@ -61,8 +70,8 @@ def test_original_content_ref_fallback_and_k_cap(wire: Wire) -> None:
     [
         dict(space_ids=[]),
         dict(space_ids=[" "]),
-        dict(space_ids=["space"], k=0),
-        dict(space_ids=["space"], fetch_k=1, k=5),
+        dict(space_ids=[SPACE_ID], k=0),
+        dict(space_ids=[SPACE_ID], fetch_k=1, k=5),
     ],
 )
 def test_invalid_configuration_is_rejected(kwargs: dict[str, Any]) -> None:
@@ -72,7 +81,7 @@ def test_invalid_configuration_is_rejected(kwargs: dict[str, Any]) -> None:
 
 def test_empty_query_never_connects(wire: Wire) -> None:
     with pytest.raises(ValueError, match="empty"):
-        GoodMemRetriever(client=wire.sdk, space_ids=["space"]).invoke(" ")
+        GoodMemRetriever(client=wire.sdk, space_ids=[SPACE_ID]).invoke(" ")
     assert not wire.requests
 
 
@@ -98,7 +107,7 @@ async def test_async_callbacks_and_lcel(wire: Wire) -> None:
         ]
     )
     recorder = Recorder()
-    retriever = GoodMemRetriever(client=wire.sdk, space_ids=["space-1"])
+    retriever = GoodMemRetriever(client=wire.sdk, space_ids=[SPACE_ID])
     chain = retriever | (lambda docs: docs[0].page_content)
     assert (
         await chain.ainvoke("question", config={"callbacks": [recorder]})
@@ -128,8 +137,8 @@ def test_reranking_and_standard_query_only_tool(wire: Wire) -> None:
     )
     retriever = GoodMemRetriever(
         client=wire.sdk,
-        space_ids=["space-1"],
-        reranker_id="reranker-1",
+        space_ids=[SPACE_ID],
+        reranker_id=RERANKER_ID,
         fetch_k=20,
         filter="CAST(val('$.team') AS TEXT) = 'blue'",
     )
@@ -155,13 +164,13 @@ def test_reranking_and_standard_query_only_tool(wire: Wire) -> None:
     request = json.loads(wire.requests[0].content)
     assert request["spaceKeys"] == [
         {
-            "spaceId": "space-1",
+            "spaceId": SPACE_ID,
             "filter": "CAST(val('$.team') AS TEXT) = 'blue'",
         }
     ]
     assert request["requestedSize"] == 20
     assert request["postProcessor"]["config"] == {
-        "reranker_id": "reranker-1",
+        "reranker_id": RERANKER_ID,
         "max_results": 5,
         "chronological_resort": False,
     }
@@ -177,7 +186,7 @@ def test_retriever_surfaces_incomplete_search(wire: Wire, code: str) -> None:
         )
     )
     # Contract Q4a: the Documents the server returned are kept and flagged.
-    docs = GoodMemRetriever(client=wire.sdk, space_ids=["space-1"]).invoke("question")
+    docs = GoodMemRetriever(client=wire.sdk, space_ids=[SPACE_ID]).invoke("question")
     assert [doc.page_content for doc in docs] == ["Retrieved evidence"]
     assert docs[0].metadata["goodmem_partial"] is True
     assert docs[0].metadata["goodmem_statuses"] == [
@@ -208,7 +217,7 @@ async def test_future_status_preserves_documents_and_callbacks(
         )
     )
     recorder = Recorder()
-    retriever = GoodMemRetriever(client=wire.sdk, space_ids=["space-1"])
+    retriever = GoodMemRetriever(client=wire.sdk, space_ids=[SPACE_ID])
     config: RunnableConfig = {"callbacks": [recorder]}
     docs = (
         await retriever.ainvoke("question", config=config)
@@ -247,7 +256,7 @@ def test_feature_disabled_is_informational_whatever_its_details(wire: Wire) -> N
             {"memoryDefinition": MEMORY},
         )
     )
-    docs = GoodMemRetriever(client=wire.sdk, space_ids=["space-1"]).invoke("question")
+    docs = GoodMemRetriever(client=wire.sdk, space_ids=[SPACE_ID]).invoke("question")
     assert len(docs) == 1
     assert "goodmem_partial" not in docs[0].metadata
     assert "goodmem_statuses" not in docs[0].metadata
@@ -257,7 +266,7 @@ def test_clean_retrieval_metadata_is_unchanged(wire: Wire) -> None:
     """The flag keys appear only on degraded retrievals, so a clean result's
     metadata is exactly what 0.2.1 produced."""
     wire.responses.append(ndjson(CHUNK, {"memoryDefinition": MEMORY}))
-    docs = GoodMemRetriever(client=wire.sdk, space_ids=["space-1"]).invoke("question")
+    docs = GoodMemRetriever(client=wire.sdk, space_ids=[SPACE_ID]).invoke("question")
     assert not {"goodmem_partial", "goodmem_statuses"} & docs[0].metadata.keys()
 
 
@@ -273,28 +282,28 @@ def test_protocol_and_auth_errors_propagate(
 ) -> None:
     wire.responses.extend([response, response])
     with pytest.raises(GoodMemError):
-        GoodMemRetriever(client=wire.sdk, space_ids=["space-1"]).invoke("question")
+        GoodMemRetriever(client=wire.sdk, space_ids=[SPACE_ID]).invoke("question")
     with pytest.raises(ToolException):
         GoodMemRetrieveMemories(client=wire.sdk).invoke(
-            {"message": "question", "space_ids": ["space-1"]}
+            {"message": "question", "space_ids": [SPACE_ID]}
         )
 
 
 def test_empty_results_are_immediate_and_caller_client_stays_open(wire: Wire) -> None:
     wire.responses.extend([ndjson(), ndjson()])
     assert (
-        GoodMemRetriever(client=wire.sdk, space_ids=["space-1"]).invoke("absent") == []
+        GoodMemRetriever(client=wire.sdk, space_ids=[SPACE_ID]).invoke("absent") == []
     )
     assert (
         GoodMemRetrieveMemories(client=wire.sdk).invoke(
-            {"message": "absent", "space_ids": ["space-1"]}
+            {"message": "absent", "space_ids": [SPACE_ID]}
         )
         == []
     )
     assert len(wire.requests) == 2 and not wire.http.is_closed
 
 
-@pytest.mark.parametrize("reranker", [None, "reranker-1"])
+@pytest.mark.parametrize("reranker", [None, RERANKER_ID])
 def test_metadata_filter_is_sent_to_each_space_before_retrieval(
     wire: Wire, reranker: str | None
 ) -> None:
@@ -302,14 +311,14 @@ def test_metadata_filter_is_sent_to_each_space_before_retrieval(
     predicate = "CAST(val('$.team') AS TEXT) = 'blue'"
     retriever = GoodMemRetriever(
         client=wire.sdk,
-        space_ids=["space-1", "space-2"],
+        space_ids=[SPACE_ID, SPACE_ID_2],
         filter=predicate,
         reranker_id=reranker,
     )
     assert retriever.invoke("question", k=1)
     request = json.loads(wire.requests[0].content)
     assert request["spaceKeys"] == [
-        {"spaceId": sid, "filter": predicate} for sid in ["space-1", "space-2"]
+        {"spaceId": sid, "filter": predicate} for sid in [SPACE_ID, SPACE_ID_2]
     ]
     assert request["requestedSize"] == (4 if reranker else 1)
     if reranker:

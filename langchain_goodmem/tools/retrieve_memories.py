@@ -5,6 +5,7 @@ from typing import Any, cast
 from goodmem.models.retrieve_memory_event import RetrieveMemoryEvent
 from pydantic import BaseModel, Field
 
+from langchain_goodmem._ids import UUIDStr
 from langchain_goodmem.tools._base import GoodMemTool, ToolInput
 
 
@@ -12,14 +13,16 @@ class RetrieveMemoriesInput(ToolInput):
     """Search arguments using SDK names and types."""
 
     message: str = Field(min_length=1, description="Natural language search query.")
-    space_ids: list[str] = Field(min_length=1, description="UUIDs of spaces to search.")
+    space_ids: list[UUIDStr] = Field(
+        min_length=1, description="UUIDs of spaces to search."
+    )
     requested_size: int = Field(
         default=5, gt=0, description="Number of vector candidates."
     )
-    reranker_id: str | None = Field(
+    reranker_id: UUIDStr | None = Field(
         default=None, description="Optional reranker UUID; needs no LLM."
     )
-    llm_id: str | None = Field(
+    llm_id: UUIDStr | None = Field(
         default=None, description="Optional LLM UUID for summarization."
     )
     max_results: int | None = Field(
@@ -55,6 +58,11 @@ class GoodMemRetrieveMemories(GoodMemTool):
         llm_temp: float | None = None,
     ) -> list[dict[str, Any]]:
         """Retrieve once and return serialized SDK events in server order."""
+        space_ids = [self._uuid(sid, "space_ids") for sid in space_ids]
+        if reranker_id is not None:
+            reranker_id = self._uuid(reranker_id, "reranker_id")
+        if llm_id is not None:
+            llm_id = self._uuid(llm_id, "llm_id")
         with self._session() as client:
             events = client.memories.retrieve(
                 message=message,

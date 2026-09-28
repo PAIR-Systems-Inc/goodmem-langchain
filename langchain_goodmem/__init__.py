@@ -1,5 +1,6 @@
 """LangChain integration for GoodMem vector-based memory storage and retrieval."""
 
+from langchain_goodmem import filters
 from langchain_goodmem.ingestion import (
     GoodMemIngestionError,
     add_documents,
@@ -24,6 +25,7 @@ from langchain_goodmem.tools import (
 )
 
 __all__ = [
+    "filters",
     "add_documents",
     "GoodMemIngestionError",
     "GoodMemRetriever",

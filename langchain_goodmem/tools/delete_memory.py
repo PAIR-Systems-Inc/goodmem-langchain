@@ -2,13 +2,14 @@
 
 from pydantic import BaseModel, Field
 
+from langchain_goodmem._ids import UUIDStr
 from langchain_goodmem.tools._base import GoodMemTool, ToolInput
 
 
 class DeleteMemoryInput(ToolInput):
     """Identify the memory to delete."""
 
-    memory_id: str = Field(description="UUID of the memory.")
+    memory_id: UUIDStr = Field(description="UUID of the memory.")
 
 
 class GoodMemDeleteMemory(GoodMemTool):
@@ -20,5 +21,6 @@ class GoodMemDeleteMemory(GoodMemTool):
 
     def _run(self, memory_id: str) -> None:
         """Delete the specified memory."""
+        memory_id = self._uuid(memory_id, "memory_id")
         with self._session() as client:
             client.memories.delete(id=memory_id)

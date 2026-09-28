@@ -4,13 +4,14 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from langchain_goodmem._ids import UUIDStr
 from langchain_goodmem.tools._base import GoodMemTool, ToolInput
 
 
 class GetMemoryInput(ToolInput):
     """Select a memory and optional SDK response fields."""
 
-    memory_id: str = Field(description="UUID of the memory.")
+    memory_id: UUIDStr = Field(description="UUID of the memory.")
     include_content: bool = Field(
         default=False, description="Include base64-encoded original content."
     )
@@ -34,6 +35,7 @@ class GoodMemGetMemory(GoodMemTool):
         include_processing_history: bool = False,
     ) -> dict[str, Any]:
         """Return the memory using the SDK's native content representation."""
+        memory_id = self._uuid(memory_id, "memory_id")
         with self._session() as client:
             return client.memories.get(
                 id=memory_id,

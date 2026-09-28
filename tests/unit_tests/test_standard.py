@@ -26,20 +26,27 @@ from langchain_goodmem import (
     GoodMemRetriever,
     GoodMemUpdateSpace,
 )
-from tests.unit_tests.conftest import CHUNK, MEMORY, ndjson
+from tests.unit_tests.conftest import (
+    CHUNK,
+    EMBEDDER_ID,
+    MEMORY,
+    MEMORY_ID,
+    SPACE_ID,
+    ndjson,
+)
 
 TOOL_CASES = [
-    (GoodMemCreateSpace, {"name": "Docs", "embedder_id": "embedder-1"}),
-    (GoodMemCreateMemory, {"space_id": "space-1", "original_content": "Text"}),
-    (GoodMemDeleteMemory, {"memory_id": "memory-1"}),
-    (GoodMemDeleteSpace, {"space_id": "space-1"}),
-    (GoodMemGetMemory, {"memory_id": "memory-1"}),
-    (GoodMemGetSpace, {"space_id": "space-1"}),
+    (GoodMemCreateSpace, {"name": "Docs", "embedder_id": EMBEDDER_ID}),
+    (GoodMemCreateMemory, {"space_id": SPACE_ID, "original_content": "Text"}),
+    (GoodMemDeleteMemory, {"memory_id": MEMORY_ID}),
+    (GoodMemDeleteSpace, {"space_id": SPACE_ID}),
+    (GoodMemGetMemory, {"memory_id": MEMORY_ID}),
+    (GoodMemGetSpace, {"space_id": SPACE_ID}),
     (GoodMemListEmbedders, {}),
-    (GoodMemListMemories, {"space_id": "space-1"}),
+    (GoodMemListMemories, {"space_id": SPACE_ID}),
     (GoodMemListSpaces, {}),
-    (GoodMemRetrieveMemories, {"message": "question", "space_ids": ["space-1"]}),
-    (GoodMemUpdateSpace, {"space_id": "space-1", "merge_labels": {"team": "blue"}}),
+    (GoodMemRetrieveMemories, {"message": "question", "space_ids": [SPACE_ID]}),
+    (GoodMemUpdateSpace, {"space_id": SPACE_ID, "merge_labels": {"team": "blue"}}),
 ]
 
 
@@ -89,7 +96,7 @@ class TestGoodMemRetriever(RetrieversIntegrationTests):
         ) as http:
             self.parameters = {
                 "client": Goodmem(http_client=http),
-                "space_ids": ["space-1"],
+                "space_ids": [SPACE_ID],
             }
             yield
 

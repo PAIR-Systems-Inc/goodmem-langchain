@@ -14,6 +14,8 @@ from langchain_core.retrievers import BaseRetriever
 from pydantic import Field, model_validator
 
 from langchain_goodmem._connection import GoodMemConnection
+from langchain_goodmem._ids import UUIDStr, require_uuid
+from langchain_goodmem.filters import all_of, from_mapping
 
 logger = logging.getLogger(__name__)
 
@@ -146,22 +148,37 @@ class GoodMemRetriever(GoodMemConnection, BaseRetriever):
     each call opens and closes its own SDK client using explicit/env settings.
     """
 
-    space_ids: list[str] = Field(min_length=1)
+    space_ids: list[UUIDStr] = Field(min_length=1)
     k: int = Field(default=5, gt=0)
     fetch_k: int | None = Field(default=None, gt=0)
-    reranker_id: str | None = None
+    reranker_id: UUIDStr | None = None
     filter: str | None = Field(
         default=None,
-        description="GoodMem metadata filter expression applied to every configured space.",
+        description=(
+            "GoodMem metadata filter expression applied to every configured space. "
+            "Sent verbatim: build it with langchain_goodmem.filters, never by "
+            "formatting user or model input into it."
+        ),
+    )
+    metadata_filter: dict[str, str | int | float | bool] | None = Field(
+        default=None,
+        description=(
+            "Field/value pairs that must all match, escaped and cast to each "
+            "value's type (TEXT, NUMERIC or BOOLEAN). Combined with filter by AND."
+        ),
     )
 
     @model_validator(mode="after")
     def _validate_search(self) -> "GoodMemRetriever":
-        if any(not sid.strip() for sid in self.space_ids):
-            raise ValueError("space_ids must not contain empty IDs")
         if self.fetch_k is not None and self.fetch_k < self.k:
             raise ValueError("fetch_k must be at least k")
+        # Build once here so an unsafe value fails when the retriever is
+        # configured, not on the first search.
+        self._filter_expression()
         return self
+
+    def _filter_expression(self) -> str:
+        return all_of(self.filter, from_mapping(self.metadata_filter))
 
     def _get_relevant_documents(
         self,
@@ -177,25 +194,32 @@ class GoodMemRetriever(GoodMemConnection, BaseRetriever):
             raise ValueError("k must be positive")
         if self.fetch_k is not None and self.fetch_k < limit:
             raise ValueError("fetch_k must be at least k")
+        # Fields can be reassigned after validation; check again before sending.
+        space_ids = [require_uuid(sid, "space_ids") for sid in self.space_ids]
+        reranker_id = (
+            None
+            if self.reranker_id is None
+            else require_uuid(self.reranker_id, "reranker_id")
+        )
         options: dict[str, Any] = {}
-        if self.reranker_id:
+        if reranker_id:
             options = dict(
-                reranker_id=self.reranker_id,
+                reranker_id=reranker_id,
                 max_results=limit,
                 chronological_resort=False,
             )
-        if self.filter is None:
-            options["space_ids"] = self.space_ids
+        expression = self._filter_expression()
+        if not expression:
+            options["space_ids"] = space_ids
         else:
             options["space_keys"] = [
-                SpaceKey.model_validate({"spaceId": sid, "filter": self.filter})
-                for sid in self.space_ids
+                SpaceKey.model_validate({"spaceId": sid, "filter": expression})
+                for sid in space_ids
             ]
         with self._session() as client:
             events = client.memories.retrieve(
                 message=query,
-                requested_size=self.fetch_k
-                or (limit * 4 if self.reranker_id else limit),
+                requested_size=self.fetch_k or (limit * 4 if reranker_id else limit),
                 fetch_memory=True,
                 fetch_memory_content=False,
                 stream=False,
