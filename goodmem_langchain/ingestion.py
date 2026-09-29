@@ -8,8 +8,8 @@ from goodmem import Goodmem, MemoryCreationRequest
 from goodmem.models.memory import Memory
 from langchain_core.documents import Document
 
-from langchain_goodmem._connection import GoodMemSDK
-from langchain_goodmem._ids import require_uuid
+from goodmem_langchain._connection import GoodMemSDK
+from goodmem_langchain._ids import require_uuid
 
 
 class GoodMemIngestionError(RuntimeError):

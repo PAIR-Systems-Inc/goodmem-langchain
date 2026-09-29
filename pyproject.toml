@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "goodmem-langchain"
-version = "0.2.4"
+version = "0.3.0"
 description = "LangChain integration for GoodMem: long-term agent memory with semantic storage and retrieval."
 license = "MIT"
 license-files = ["LICENSE"]
@@ -56,11 +56,11 @@ typing = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["langchain_goodmem"]
+packages = ["goodmem_langchain"]
 
 [tool.hatch.build.targets.sdist]
 only-include = [
-    "langchain_goodmem",
+    "goodmem_langchain",
     "tests",
     "examples",
     ".gitignore",

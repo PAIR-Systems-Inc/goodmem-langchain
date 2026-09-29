@@ -2,9 +2,7 @@
 
 Use [GoodMem](https://goodmem.ai) from LangChain for document ingestion, retrieval, and agent memory. GoodMem handles storage, chunking, embeddings, and optional reranking.
 
-Formerly `langchain-goodmem` (last release 0.2.3); moved into the PAIR Systems PyPI organisation under the `goodmem-<framework>` naming used by goodmem-adk and goodmem-semantic-kernel. Imports (`langchain_goodmem`) are unchanged. Both names ship the same files, so upgrade with `pip uninstall -y langchain-goodmem && pip install goodmem-langchain`.
-
-Version **0.2** breaks compatibility with 0.1; see [CHANGELOG.md](CHANGELOG.md) for migration.
+Version **0.3** breaks compatibility with earlier releases; see [CHANGELOG.md](CHANGELOG.md) for migration.
 
 ## Install and connect
 
@@ -24,7 +22,7 @@ Retrievers and tools read these variables, or take a configured `goodmem.Goodmem
 import os
 from goodmem import Goodmem
 from langchain_core.documents import Document
-from langchain_goodmem import GoodMemRetriever, add_documents
+from goodmem_langchain import GoodMemRetriever, add_documents
 
 space_id = "5f6b1c2e-8a4d-4e3b-9c7a-2d1e0f9a8b7c"  # your space's UUID
 with Goodmem(
@@ -45,7 +43,7 @@ for document in retriever.invoke("Who owns Cobalt's launch?"):
 
 `add_documents` batches text and metadata through the SDK and waits for indexing by default. Set `wait=False` for background ingestion, then use `wait_for_memory(client, memory_id)` when readiness matters. Optional Document IDs must be UUIDs; existing IDs produce conflicts. `GoodMemIngestionError.created_memory_ids` identifies successful writes if part of ingestion fails.
 
-`metadata_filter` pairs must all match; values are escaped and typed. Build richer filters with `langchain_goodmem.filters` (`all_of`, `compare`, `one_of`); never format user input into `filter`. Empty results return immediately.
+`metadata_filter` pairs must all match; values are escaped and typed. Build richer filters with `goodmem_langchain.filters` (`all_of`, `compare`, `one_of`); never format user input into `filter`. Empty results return immediately.
 
 The retriever returns Documents with source metadata, memory/chunk/space IDs, and scores. It supports LCEL, callbacks, batching, per-call `k`, and `ainvoke` through LangChain's thread executor.
 

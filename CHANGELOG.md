@@ -1,8 +1,8 @@
 # Changelog
 
-## 0.2.4 — 2026-09-29
+## 0.3.0 — 2026-09-29
 
-- **The PyPI distribution is renamed from `langchain-goodmem` to `goodmem-langchain`.** The package moved into the PAIR Systems PyPI organisation under the `goodmem-<framework>` naming used by goodmem-adk and goodmem-semantic-kernel. Install it with `pip install goodmem-langchain`; `langchain-goodmem` stays at 0.2.3. The import package is unchanged: `from langchain_goodmem import ...` works as before. Both distributions ship the same `langchain_goodmem` files, so installing both into one environment makes them overwrite each other; remove the old one first: `pip uninstall -y langchain-goodmem && pip install goodmem-langchain`. No code changes.
+- **Renamed to `goodmem-langchain` (import `goodmem_langchain`)**, the `goodmem-<framework>` naming used by goodmem-adk and goodmem-semantic-kernel. Breaking: update imports from `langchain_goodmem` to `goodmem_langchain`. The previous distribution, `langchain-goodmem`, stays at 0.2.3. No other code changes.
 
 ## 0.2.3 — 2026-09-25
 

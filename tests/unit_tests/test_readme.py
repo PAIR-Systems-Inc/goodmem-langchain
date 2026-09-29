@@ -15,10 +15,10 @@ from typing import Any
 import pytest
 from langchain_core.tools import BaseTool
 
-import langchain_goodmem
-from langchain_goodmem import GoodMemCreateMemory, GoodMemRetriever
-from langchain_goodmem._ids import require_uuid
-from langchain_goodmem.retrievers import _INFORMATIONAL_CODES
+import goodmem_langchain
+from goodmem_langchain import GoodMemCreateMemory, GoodMemRetriever
+from goodmem_langchain._ids import require_uuid
+from goodmem_langchain.retrievers import _INFORMATIONAL_CODES
 from tests.unit_tests.conftest import RERANKER_ID
 from tests.unit_tests.test_untrusted_input import RecordingServer
 
@@ -76,7 +76,7 @@ def test_inline_constructor_calls_run() -> None:
     calls = [code for code in INLINE_CODE if re.fullmatch(r"GoodMem\w+\(.*\)", code)]
     assert calls, "README shows how to construct the upload tool"
     for call in calls:
-        tool = eval(call, vars(langchain_goodmem))
+        tool = eval(call, vars(goodmem_langchain))
         if isinstance(tool, GoodMemCreateMemory):
             assert tool.upload_dir is not None
             assert "file_path" in tool.args
@@ -91,11 +91,11 @@ def test_inline_id_literals_are_uuids() -> None:
 
 def test_named_symbols_exist() -> None:
     for name in set(re.findall(r"\bGoodMem\w+", README)):
-        assert name in langchain_goodmem.__all__, name
+        assert name in goodmem_langchain.__all__, name
     for name in ("add_documents", "wait_for_memory"):
-        assert name in README and name in langchain_goodmem.__all__
+        assert name in README and name in goodmem_langchain.__all__
     assert "created_memory_ids" in vars(
-        langchain_goodmem.GoodMemIngestionError("", created_memory_ids=[])
+        goodmem_langchain.GoodMemIngestionError("", created_memory_ids=[])
     )
     for argument in (
         "filter",
@@ -114,8 +114,9 @@ def test_named_symbols_exist() -> None:
 def test_versions_and_status_codes_match_the_package() -> None:
     # tomllib is 3.11+; CI also runs 3.10.
     manifest = (PROJECT / "pyproject.toml").read_text(encoding="utf-8")
-    assert re.search(r'^version = "0\.2\.\d+"$', manifest, re.M)
-    assert "Version **0.2**" in README
+    version = re.search(r'^version = "(\d+\.\d+)\.\d+"$', manifest, re.M)
+    assert version is not None
+    assert f"Version **{version.group(1)}**" in README
     assert re.search(r'^requires-python = ">=3\.10', manifest, re.M)
     assert "Python 3.10+" in README
     named = re.search(r"Notices that carry no loss \(([^)]*)\)", README)

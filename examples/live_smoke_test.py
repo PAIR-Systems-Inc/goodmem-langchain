@@ -11,7 +11,7 @@ import uuid
 from goodmem import Goodmem
 from langchain_core.documents import Document
 
-from langchain_goodmem import (
+from goodmem_langchain import (
     GoodMemCreateSpace,
     GoodMemDeleteSpace,
     GoodMemRetriever,

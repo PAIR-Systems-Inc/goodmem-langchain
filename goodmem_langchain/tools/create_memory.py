@@ -6,10 +6,10 @@ from typing import Any
 from langchain_core.tools import ToolException
 from pydantic import BaseModel, Field, model_validator
 
-from langchain_goodmem._ids import UUIDStr
-from langchain_goodmem._uploads import GoodMemUploadError, resolve_upload_path
-from langchain_goodmem.ingestion import wait_for_memory
-from langchain_goodmem.tools._base import GoodMemTool, ToolInput
+from goodmem_langchain._ids import UUIDStr
+from goodmem_langchain._uploads import GoodMemUploadError, resolve_upload_path
+from goodmem_langchain.ingestion import wait_for_memory
+from goodmem_langchain.tools._base import GoodMemTool, ToolInput
 
 
 class CreateMemoryInput(ToolInput):

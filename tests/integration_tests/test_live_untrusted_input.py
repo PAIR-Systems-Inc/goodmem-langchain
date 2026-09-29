@@ -15,7 +15,7 @@ from langchain_core.tools import ToolException
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from pydantic import ValidationError
 
-from langchain_goodmem import (
+from goodmem_langchain import (
     GoodMemCreateMemory,
     GoodMemCreateSpace,
     GoodMemDeleteMemory,
@@ -110,13 +110,13 @@ def test_live_filter_values_cannot_widen_the_filter(
 ) -> None:
     """P34: a value built into a filter is one literal, and types are cast.
 
-    Before langchain_goodmem.filters existed, the only way to filter by a
+    Before goodmem_langchain.filters existed, the only way to filter by a
     user's value was to format it into ``filter=``; ``x' OR '1'='1`` then
     matched every row live.
     """
     from langchain_core.documents import Document
 
-    from langchain_goodmem import GoodMemRetriever, add_documents
+    from goodmem_langchain import GoodMemRetriever, add_documents
 
     sdk, sid = space
     ids = add_documents(

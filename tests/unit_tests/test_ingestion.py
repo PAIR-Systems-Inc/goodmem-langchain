@@ -6,7 +6,7 @@ import httpx
 import pytest
 from langchain_core.documents import Document
 
-from langchain_goodmem import GoodMemIngestionError, add_documents
+from goodmem_langchain import GoodMemIngestionError, add_documents
 from tests.unit_tests.conftest import MEMORY, MEMORY_ID, MEMORY_ID_2, SPACE_ID, Wire
 
 
