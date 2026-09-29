@@ -1,20 +1,22 @@
-# langchain-goodmem
+# goodmem-langchain
 
 Use [GoodMem](https://goodmem.ai) from LangChain for document ingestion, retrieval, and agent memory. GoodMem handles storage, chunking, embeddings, and optional reranking.
 
-Version **0.2** intentionally breaks compatibility with 0.1. See [CHANGELOG.md](CHANGELOG.md) for migration details.
+Formerly `langchain-goodmem` (last release 0.2.3); moved into the PAIR Systems PyPI organisation under the `goodmem-<framework>` naming used by goodmem-adk and goodmem-semantic-kernel. Imports (`langchain_goodmem`) are unchanged. Both names ship the same files, so upgrade with `pip uninstall -y langchain-goodmem && pip install goodmem-langchain`.
+
+Version **0.2** breaks compatibility with 0.1; see [CHANGELOG.md](CHANGELOG.md) for migration.
 
 ## Install and connect
 
 Requires Python 3.10+, a running GoodMem server, an API key, and a space configured with an embedder.
 
 ```bash
-pip install langchain-goodmem
+pip install goodmem-langchain
 export GOODMEM_BASE_URL="http://localhost:8080"
 export GOODMEM_API_KEY="your-key"
 ```
 
-Retrievers and tools read these environment variables. You can also pass a configured `goodmem.Goodmem` instance as `client=`; you retain ownership of it.
+Retrievers and tools read these variables, or take a configured `goodmem.Goodmem` as `client=`; you keep ownership of it.
 
 ## Write Documents and retrieve
 
@@ -47,7 +49,7 @@ for document in retriever.invoke("Who owns Cobalt's launch?"):
 
 The retriever returns Documents with source metadata, memory/chunk/space IDs, and scores. It supports LCEL, callbacks, batching, per-call `k`, and `ainvoke` through LangChain's thread executor.
 
-If the server reports a real problem during a search — a reranker was unavailable, one space was unreachable — the Documents it did return are still returned, and each carries `metadata["goodmem_partial"] = True` and `metadata["goodmem_statuses"]` saying why. A problem that left no Documents at all returns an empty list and emits a `UserWarning` and a warning log line with the statuses, so it is distinguishable from a search that matched nothing. Neither case raises. Notices that carry no loss (`FEATURE_DISABLED`, `LLM_CAPABILITY_INFERRED`) are dropped; a status code this version does not know is reported as `UNKNOWN`.
+If a search hits a real problem (a reranker unavailable, a space unreachable), the Documents it found are still returned, each carrying `metadata["goodmem_partial"] = True` and `metadata["goodmem_statuses"]` saying why. A problem that left no Documents returns `[]` with a `UserWarning` and a warning log line, unlike a search that matched nothing. Neither case raises. Notices that carry no loss (`FEATURE_DISABLED`, `LLM_CAPABILITY_INFERRED`) are dropped; a status code this version does not know is reported as `UNKNOWN`.
 
 For reranking, set `reranker_id` and optionally `fetch_k=20`. **Reranking requires no LLM.**
 
@@ -66,7 +68,7 @@ The agent supplies only a query. Spaces and filters remain configured by the dev
 
 ## Other tools and development
 
-The package also provides space/memory management tools. `GoodMemRetrieveMemories` returns SDK events, including chunks, optional summaries, and statuses; `GoodMemRetriever` flags incomplete retrieval on the Documents' metadata rather than raising. Tools use SDK data shapes and LangChain `ToolException` handling.
+The package also provides space/memory management tools. `GoodMemRetrieveMemories` returns SDK events, including chunks, optional summaries, and statuses. Tools use SDK data shapes and LangChain `ToolException` handling.
 
 IDs must be UUIDs because the SDK puts them unescaped into URL paths. Model file uploads need `GoodMemCreateMemory(upload_dir="/srv/uploads")`, confined there, symlinks resolved.
 

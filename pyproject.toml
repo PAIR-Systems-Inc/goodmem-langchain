@@ -3,8 +3,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "langchain-goodmem"
-version = "0.2.3"
+name = "goodmem-langchain"
+version = "0.2.4"
 description = "LangChain integration for GoodMem: long-term agent memory with semantic storage and retrieval."
 license = "MIT"
 license-files = ["LICENSE"]
