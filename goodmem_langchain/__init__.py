@@ -1,16 +1,16 @@
 """LangChain integration for GoodMem vector-based memory storage and retrieval."""
 
-from langchain_goodmem import filters
-from langchain_goodmem.ingestion import (
+from goodmem_langchain import filters
+from goodmem_langchain.ingestion import (
     GoodMemIngestionError,
     add_documents,
     wait_for_memory,
 )
-from langchain_goodmem.retrievers import (
+from goodmem_langchain.retrievers import (
     GoodMemRetrievalError,
     GoodMemRetriever,
 )
-from langchain_goodmem.tools import (
+from goodmem_langchain.tools import (
     GoodMemCreateMemory,
     GoodMemCreateSpace,
     GoodMemDeleteMemory,

@@ -12,7 +12,7 @@ from langchain_core.documents import Document
 from langchain_core.retrievers import BaseRetriever
 from langchain_tests.integration_tests import RetrieversIntegrationTests
 
-from langchain_goodmem import (
+from goodmem_langchain import (
     GoodMemCreateSpace,
     GoodMemDeleteSpace,
     GoodMemIngestionError,

@@ -15,7 +15,7 @@ import pytest
 from goodmem import Goodmem
 from langchain_core.tools import create_retriever_tool
 
-from langchain_goodmem import (
+from goodmem_langchain import (
     GoodMemCreateMemory,
     GoodMemCreateSpace,
     GoodMemDeleteMemory,

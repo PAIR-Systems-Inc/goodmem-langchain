@@ -6,8 +6,8 @@ import re
 import pytest
 from pydantic import ValidationError
 
-from langchain_goodmem import GoodMemRetriever, filters
-from langchain_goodmem.filters import GoodMemFilterError
+from goodmem_langchain import GoodMemRetriever, filters
+from goodmem_langchain.filters import GoodMemFilterError
 from tests.unit_tests.conftest import CHUNK, MEMORY, SPACE_ID, SPACE_ID_2, Wire, ndjson
 
 INJECTION = "x' OR '1'='1"

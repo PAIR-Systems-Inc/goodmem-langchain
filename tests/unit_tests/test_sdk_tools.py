@@ -12,8 +12,8 @@ from langchain_core.messages import ToolMessage
 from langchain_core.tools import BaseTool, ToolException
 from pydantic import ValidationError
 
-import langchain_goodmem
-from langchain_goodmem import (
+import goodmem_langchain
+from goodmem_langchain import (
     GoodMemCreateMemory,
     GoodMemCreateSpace,
     GoodMemDeleteMemory,
@@ -129,7 +129,7 @@ def test_creation_waits_for_its_memory_before_search(
     wire: Wire, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     sleeps = Mock()
-    monkeypatch.setattr("langchain_goodmem.ingestion.time.sleep", sleeps)
+    monkeypatch.setattr("goodmem_langchain.ingestion.time.sleep", sleeps)
     wire.responses.extend(
         httpx.Response(200, json=MEMORY | {"processingStatus": status})
         for status in ["PENDING", "PENDING", "PROCESSING", "COMPLETED"]
@@ -276,8 +276,8 @@ def test_sdk_results_are_serialized_by_langchain_for_agents(wire: Wire) -> None:
 
 
 def test_connection_settings_are_not_model_arguments(wire: Wire) -> None:
-    for name in langchain_goodmem.__all__:
-        cls = getattr(langchain_goodmem, name)
+    for name in goodmem_langchain.__all__:
+        cls = getattr(goodmem_langchain, name)
         if isinstance(cls, type) and issubclass(cls, BaseTool):
             schema = cls(client=wire.sdk).get_input_schema().model_json_schema()
             assert (
@@ -324,7 +324,7 @@ def test_environment_secrets_lifecycle_and_configured_timeout(
     sdk.__enter__ = Mock(return_value=sdk)
     sdk.__exit__ = Mock(return_value=False)
     factory = Mock(return_value=sdk)
-    monkeypatch.setattr("langchain_goodmem._connection.Goodmem", factory)
+    monkeypatch.setattr("goodmem_langchain._connection.Goodmem", factory)
     tool = GoodMemListSpaces(goodmem_timeout=120)
     assert "synthetic-key" not in repr(tool) and "synthetic-key" not in str(
         tool.model_dump()

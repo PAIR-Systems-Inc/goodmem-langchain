@@ -13,9 +13,9 @@ from langchain_core.documents import Document
 from langchain_core.retrievers import BaseRetriever
 from pydantic import Field, model_validator
 
-from langchain_goodmem._connection import GoodMemConnection
-from langchain_goodmem._ids import UUIDStr, require_uuid
-from langchain_goodmem.filters import all_of, from_mapping
+from goodmem_langchain._connection import GoodMemConnection
+from goodmem_langchain._ids import UUIDStr, require_uuid
+from goodmem_langchain.filters import all_of, from_mapping
 
 logger = logging.getLogger(__name__)
 
@@ -156,7 +156,7 @@ class GoodMemRetriever(GoodMemConnection, BaseRetriever):
         default=None,
         description=(
             "GoodMem metadata filter expression applied to every configured space. "
-            "Sent verbatim: build it with langchain_goodmem.filters, never by "
+            "Sent verbatim: build it with goodmem_langchain.filters, never by "
             "formatting user or model input into it."
         ),
     )

@@ -24,7 +24,7 @@ from langchain_core.tools import BaseTool, ToolException
 from langchain_core.utils.function_calling import convert_to_openai_tool
 from pydantic import ValidationError
 
-from langchain_goodmem import (
+from goodmem_langchain import (
     GoodMemCreateMemory,
     GoodMemCreateSpace,
     GoodMemDeleteMemory,
@@ -38,7 +38,7 @@ from langchain_goodmem import (
     add_documents,
     wait_for_memory,
 )
-from langchain_goodmem._ids import require_uuid
+from goodmem_langchain._ids import require_uuid
 from tests.unit_tests.conftest import CHUNK, MEMORY, SPACE
 
 # The loopback server below is the only socket these tests open.

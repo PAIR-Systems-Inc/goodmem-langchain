@@ -13,7 +13,7 @@ from langchain_core.runnables import RunnableConfig
 from langchain_core.tools import ToolException, create_retriever_tool
 from pydantic import ValidationError
 
-from langchain_goodmem import (
+from goodmem_langchain import (
     GoodMemRetrievalError,
     GoodMemRetrieveMemories,
     GoodMemRetriever,

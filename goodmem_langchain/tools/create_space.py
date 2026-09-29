@@ -5,8 +5,8 @@ from typing import Any
 from goodmem.models.space_embedder_config import SpaceEmbedderConfig
 from pydantic import BaseModel, Field
 
-from langchain_goodmem._ids import UUIDStr
-from langchain_goodmem.tools._base import GoodMemTool, ToolInput
+from goodmem_langchain._ids import UUIDStr
+from goodmem_langchain.tools._base import GoodMemTool, ToolInput
 
 
 class CreateSpaceInput(ToolInput):

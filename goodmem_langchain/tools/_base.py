@@ -7,8 +7,8 @@ from goodmem.errors import GoodMemError
 from langchain_core.tools import BaseTool, ToolException
 from pydantic import BaseModel, ConfigDict
 
-from langchain_goodmem._connection import GoodMemConnection, GoodMemSDK
-from langchain_goodmem._ids import require_uuid
+from goodmem_langchain._connection import GoodMemConnection, GoodMemSDK
+from goodmem_langchain._ids import require_uuid
 
 
 class ToolInput(BaseModel):

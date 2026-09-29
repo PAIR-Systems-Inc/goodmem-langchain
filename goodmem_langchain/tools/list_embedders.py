@@ -4,7 +4,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from langchain_goodmem.tools._base import GoodMemTool, ToolInput
+from goodmem_langchain.tools._base import GoodMemTool, ToolInput
 
 
 class GoodMemListEmbedders(GoodMemTool):

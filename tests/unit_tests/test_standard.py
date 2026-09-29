@@ -12,7 +12,7 @@ from langchain_core.tools import BaseTool
 from langchain_tests.integration_tests import RetrieversIntegrationTests
 from langchain_tests.unit_tests import ToolsUnitTests
 
-from langchain_goodmem import (
+from goodmem_langchain import (
     GoodMemCreateMemory,
     GoodMemCreateSpace,
     GoodMemDeleteMemory,

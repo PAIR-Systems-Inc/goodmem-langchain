@@ -26,7 +26,7 @@ def _check_public_text(text: str) -> None:
 
 def test_sdist_contains_distributable_files_and_public_documentation() -> None:
     allowed_roots = {
-        "langchain_goodmem",
+        "goodmem_langchain",
         "tests",
         "examples",
         ".gitignore",
@@ -52,7 +52,7 @@ def test_sdist_contains_distributable_files_and_public_documentation() -> None:
             stream = archive.extractfile(members[name])
             assert stream is not None
             _check_public_text(stream.read().decode("utf-8"))
-        assert "langchain_goodmem/retrievers.py" in members
+        assert "goodmem_langchain/retrievers.py" in members
         readme = archive.extractfile(members["README.md"])
         assert readme is not None and len(readme.read().decode().split()) <= 500
 
@@ -61,13 +61,13 @@ def test_wheel_contains_current_package_and_public_pypi_description() -> None:
     with zipfile.ZipFile(_artifact("*.whl")) as archive:
         for name in archive.namelist():
             root = PurePosixPath(name).parts[0]
-            assert root == "langchain_goodmem" or root.endswith(".dist-info"), name
+            assert root == "goodmem_langchain" or root.endswith(".dist-info"), name
         metadata = [
             name for name in archive.namelist() if name.endswith(".dist-info/METADATA")
         ]
         assert len(metadata) == 1
         _check_public_text(archive.read(metadata[0]).decode("utf-8"))
-        sources = list((PROJECT / "langchain_goodmem").rglob("*.py"))
+        sources = list((PROJECT / "goodmem_langchain").rglob("*.py"))
         assert {name for name in archive.namelist() if name.endswith(".py")} == {
             source.relative_to(PROJECT).as_posix() for source in sources
         }
